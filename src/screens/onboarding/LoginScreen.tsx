@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, StyleSheet, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -15,6 +16,7 @@ export function LoginScreen() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -40,14 +42,25 @@ export function LoginScreen() {
         onChangeText={setEmail}
         style={[styles.input, { color: theme.text, borderColor: theme.border }]}
       />
-      <TextInput
-        placeholder="Password"
-        placeholderTextColor={theme.textMuted}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-      />
+      <View style={[styles.passwordRow, { borderColor: theme.border }]}>
+        <TextInput
+          placeholder="Password"
+          placeholderTextColor={theme.textMuted}
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={setPassword}
+          style={[styles.passwordInput, { color: theme.text }]}
+        />
+        <Pressable
+          onPress={() => setShowPassword((v) => !v)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+          style={styles.eyeButton}
+        >
+          <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color={theme.textMuted} />
+        </Pressable>
+      </View>
       <PrimaryButton label="Log in" onPress={handleLogin} loading={loading} />
     </SafeAreaView>
   );
@@ -57,4 +70,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg, justifyContent: "center" },
   title: { fontSize: fontSizes.title, fontWeight: "700", marginBottom: spacing.lg },
   input: { borderWidth: 1, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, fontSize: fontSizes.body },
+  passwordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+    marginBottom: spacing.md,
+    paddingLeft: spacing.md,
+  },
+  passwordInput: { flex: 1, paddingVertical: spacing.md, fontSize: fontSizes.body },
+  eyeButton: { minWidth: 48, minHeight: 48, alignItems: "center", justifyContent: "center" },
 });

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +17,7 @@ export function SignUpScreen() {
   const { signUp } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const {
@@ -68,14 +70,25 @@ export function SignUpScreen() {
         onChangeText={setEmail}
         style={[styles.input, { color: theme.text, borderColor: theme.border }]}
       />
-      <TextInput
-        placeholder="Password (min 8 characters)"
-        placeholderTextColor={theme.textMuted}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-      />
+      <View style={[styles.passwordRow, { borderColor: theme.border }]}>
+        <TextInput
+          placeholder="Password (min 8 characters)"
+          placeholderTextColor={theme.textMuted}
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={setPassword}
+          style={[styles.passwordInput, { color: theme.text }]}
+        />
+        <Pressable
+          onPress={() => setShowPassword((v) => !v)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+          style={styles.eyeButton}
+        >
+          <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color={theme.textMuted} />
+        </Pressable>
+      </View>
       <PrimaryButton label="Create account" onPress={handleSignUp} loading={loading} />
       <Pressable onPress={() => navigation.navigate("Login")} style={{ marginTop: spacing.md, alignItems: "center" }}>
         <Text style={{ color: theme.textMuted }}>Already have an account? Log in</Text>
@@ -92,4 +105,14 @@ const styles = StyleSheet.create({
   title: { fontSize: fontSizes.title, fontWeight: "700", marginBottom: spacing.lg },
   input: { borderWidth: 1, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, fontSize: fontSizes.body },
   note: { fontSize: 12, textAlign: "center", marginTop: spacing.lg },
+  passwordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+    marginBottom: spacing.md,
+    paddingLeft: spacing.md,
+  },
+  passwordInput: { flex: 1, paddingVertical: spacing.md, fontSize: fontSizes.body },
+  eyeButton: { minWidth: 48, minHeight: 48, alignItems: "center", justifyContent: "center" },
 });
