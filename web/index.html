@@ -1,0 +1,84 @@
+<!doctype html>
+<!--
+  Recipient-side no-login view (Section 4.3 / Flow C).
+  Static page, no build step - deploy anywhere (Vercel/Netlify/GitHub Pages/
+  even Supabase Storage). Reads ?token= from the URL, calls the
+  get-shared-message edge function, and renders just that one message -
+  never the sender's full history, unless full_history_access was granted.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quiet Signal - check-in</title>
+<style>
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #F6F1EB;
+    color: #2B2622;
+    display: flex;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    background: #FFFFFF;
+    border-radius: 16px;
+    padding: 32px 24px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .label { color: #6B6259; font-size: 14px; margin-bottom: 8px; }
+  .message { font-size: 20px; line-height: 1.5; margin-bottom: 16px; }
+  .timestamp { color: #6B6259; font-size: 13px; }
+  .error { color: #B3413A; }
+  .history-item { padding: 8px 0; border-top: 1px solid #E3D8CC; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="label">Loading…</div>
+  </div>
+
+  <script>
+    // Replace with your deployed Supabase project URL if different.
+    const FUNCTION_BASE = "https://bzczbsrtbnqiydscvnak.supabase.co/functions/v1/get-shared-message";
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    const card = document.getElementById("card");
+
+    if (!token) {
+      card.innerHTML = '<div class="label error">Missing link token.</div>';
+    } else {
+      fetch(`${FUNCTION_BASE}?token=${encodeURIComponent(token)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.error) {
+            card.innerHTML = '<div class="label error">This link has expired or is invalid.</div>';
+            return;
+          }
+          const label = data.recipient_label ? `${data.recipient_label}, here's today's check-in:` : "Today's check-in:";
+          let html = `
+            <div class="label">${label}</div>
+            <div class="message">${data.message}</div>
+            <div class="timestamp">Sent ${new Date(data.sent_at).toLocaleString()}</div>
+          `;
+          if (data.recent_history && data.recent_history.length > 0) {
+            html += '<div class="label" style="margin-top:20px;">Recent check-ins</div>';
+            for (const h of data.recent_history) {
+              html += `<div class="history-item">${h.message_text}<br/><span class="timestamp">${new Date(h.sent_at).toLocaleDateString()}</span></div>`;
+            }
+          }
+          card.innerHTML = html;
+        })
+        .catch(() => {
+          card.innerHTML = '<div class="label error">Couldn\'t load this check-in. Please try again later.</div>';
+        });
+    }
+  </script>
+</body>
+</html>

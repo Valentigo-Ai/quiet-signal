@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Quiet Signal",
+    "slug": "quiet-signal",
+    "scheme": "quietsignal",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#F6F1EB"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "package": "com.quietsignal.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#F6F1EB"
+      },
+      "permissions": ["NOTIFICATIONS"]
+    },
+    "plugins": ["expo-secure-store"],
+    "extra": {
+      "eas": {}
+    }
+  }
+}
