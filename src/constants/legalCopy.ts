@@ -27,9 +27,23 @@ Settings > Delete account.`;
 export const AGE_GATE_COPY =
   "Quiet Signal is for adults 18 and over. By continuing, you confirm you're 18 or older.";
 
-export const CRISIS_SAFETY_DISCLAIMER =
-  "Quiet Signal is not a crisis or emergency service. If you're in immediate danger, call 999. " +
-  "For urgent support, contact Samaritans (116 123), Combat Stress (0800 138 1619), or SSAFA.";
+import { CountryCrisisInfo, getGeneralResources } from "@/constants/crisisResources";
+
+// Country-aware version - names the general-audience resource(s) for the
+// person's region, since this disclaimer is shown to everyone regardless of
+// whether they're military-connected. Veteran-specific lines are named
+// separately in their own section on the Support tab, not here. See
+// src/constants/crisisResources.ts for the full set.
+export function getCrisisSafetyDisclaimer(info: CountryCrisisInfo): string {
+  const topResources = getGeneralResources(info)
+    .slice(0, 2)
+    .map((r) => (r.phone ? `${r.name} (${r.phone})` : r.name))
+    .join(", ");
+  return (
+    `Quiet Signal is not a crisis or emergency service. If you're in immediate danger, call ${info.emergencyNumber}. ` +
+    `For urgent support, contact ${topResources}.`
+  );
+}
 
 export const PRIVACY_NOTICE_MARKDOWN = `# Quiet Signal Privacy Notice
 

@@ -17,7 +17,12 @@ import Sentiment from "npm:sentiment@5";
 
 // Non-exhaustive starter wordlist. This MUST be reviewed and expanded by a
 // clinical/safety advisor before public launch - ship-blocking per spec
-// Section 4.5, but this file provides the mandatory mechanism.
+// Section 4.5, but this file provides the mandatory mechanism. The extra
+// patterns below (added July 2026) are common phrasings referenced in
+// public crisis-line training materials, added by Claude as a good-faith
+// broadening pass - this is still NOT a substitute for the clinical/safety
+// review this file has always required before launch. Treat every pattern
+// here as a starting point, not a finished list.
 const CRISIS_PATTERNS: RegExp[] = [
   /\bkill myself\b/i,
   /\bsuicid(e|al)\b/i,
@@ -31,6 +36,16 @@ const CRISIS_PATTERNS: RegExp[] = [
   /\bbetter off (dead|without me)\b/i,
   /\bcan'?t (go on|do this anymore)\b/i,
   /\bplan to (die|end it)\b/i,
+  /\bno point (in )?living\b/i,
+  /\bwish I (wasn'?t|weren'?t) here\b/i,
+  /\btired of (living|being alive)\b/i,
+  /\bwant it to (be over|stop)\b/i,
+  /\bgive up on (everything|life)\b/i,
+  /\bno way out\b/i,
+  /\bdon'?t want to (be here|exist) anymore\b/i,
+  /\bthinking about ending (it|my life)\b/i,
+  /\bgoodbye (forever|for good)\b/i,
+  /\beveryone('s| is) better off without me\b/i,
 ];
 
 function checkCrisisLanguage(text: string): boolean {

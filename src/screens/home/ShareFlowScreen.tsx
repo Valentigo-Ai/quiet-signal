@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TextInput, StyleSheet, FlatList, Pressable, Alert, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { ScreenBackground } from "@/components/ScreenBackground";
+import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { supabase, generateMessage, shareCheckin } from "@/lib/supabase";
-import { spacing, fontSizes } from "@/lib/theme";
+import { spacing, fontSizes, imageTextShadow, fonts } from "@/lib/theme";
 
 type Recipient = { id: string; recipient_label: string };
 
@@ -15,6 +16,7 @@ type Recipient = { id: string; recipient_label: string };
 // send - or just keep today private.
 export function ShareFlowScreen() {
   const { theme } = useAppTheme();
+  const { getSource } = useBackgroundPrefs();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { checkinId } = route.params ?? {};
@@ -56,8 +58,9 @@ export function ShareFlowScreen() {
   const keepPrivate = () => navigation.navigate("Main", { screen: "CheckIn" });
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Share today's check-in?</Text>
+    <ScreenBackground source={getSource("share")} edges={["bottom", "left", "right"]}>
+      <View style={styles.container}>
+      <Text style={[styles.title, imageTextShadow, { color: theme.text }]}>Share today's check-in?</Text>
 
       {loadingMessage ? (
         <ActivityIndicator style={{ marginVertical: spacing.lg }} color={theme.primary} />
@@ -108,13 +111,14 @@ export function ShareFlowScreen() {
       <Pressable onPress={keepPrivate} style={{ marginTop: spacing.md, alignItems: "center" }}>
         <Text style={{ color: theme.textMuted }}>Just for me today</Text>
       </Pressable>
-    </SafeAreaView>
+      </View>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg },
-  title: { fontSize: fontSizes.title, fontWeight: "700", marginBottom: spacing.lg },
+  title: { fontSize: fontSizes.title, fontFamily: fonts.heading, marginBottom: spacing.lg },
   label: { fontSize: fontSizes.label, fontWeight: "600", marginBottom: spacing.sm },
   messageBox: {
     borderWidth: 1,

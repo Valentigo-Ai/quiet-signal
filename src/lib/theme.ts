@@ -31,8 +31,55 @@ export const darkTheme = {
   minTouchTarget: 48,
 };
 
-export type Theme = typeof lightTheme;
+export type Theme = typeof lightTheme | typeof darkTheme;
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
 export const fontSizes = { body: 17, label: 15, title: 22, largeTitle: 28 };
 export const highContrastMultiplier = 1.0; // toggled via ThemeContext when high-contrast is on
+
+// Brand typefaces (Fraunces + Karla via @expo-google-fonts - loaded in
+// App.tsx through useAppFonts()). Fraunces is the warm editorial serif for
+// headlines/titles - it's what makes the app read as a considered, personal
+// product rather than a generic system-font utility screen. Karla carries
+// everything else: buttons, body copy, labels. Falls back to the platform
+// system font automatically if a screen is rendered before fonts finish
+// loading (App.tsx gates first paint on this, so in practice this shouldn't
+// happen, but StyleSheet.create can't guarantee load order across fast
+// refresh in dev).
+export const fonts = {
+  heading: "Fraunces_600SemiBold",
+  headingRegular: "Fraunces_400Regular",
+  body: "Karla_400Regular",
+  bodyBold: "Karla_700Bold",
+};
+
+// Shared elevation tokens for the visual-polish pass (card shadows etc).
+// Deliberately subtle - this app avoids anything flashy/gamified.
+export const radii = { sm: 10, md: 14, lg: 20 };
+export const cardShadow = {
+  shadowColor: "#000000",
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.07,
+  shadowRadius: 8,
+  elevation: 2,
+};
+export const raisedShadow = {
+  shadowColor: "#000000",
+  shadowOffset: { width: 0, height: 5 },
+  shadowOpacity: 0.12,
+  shadowRadius: 14,
+  elevation: 4,
+};
+
+// For text sitting directly over a background photo (see ScreenBackground).
+// Since the photo now shows at full clarity everywhere except a small
+// gradient behind the header, this shadow is the primary legibility
+// technique for anything outside that zone - a "halo" around the text is
+// one of WCAG's own recognised alternatives to a background scrim (W3C
+// 1.4.3, technique G18), which is why it's a bit stronger than a typical
+// decorative shadow.
+export const imageTextShadow = {
+  textShadowColor: "rgba(0,0,0,0.5)",
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 8,
+};

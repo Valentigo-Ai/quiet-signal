@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TextInput, StyleSheet, FlatList, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppTheme } from "@/context/ThemeContext";
+import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
+import { ScreenBackground } from "@/components/ScreenBackground";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
-import { spacing, fontSizes } from "@/lib/theme";
+import { spacing, fontSizes, imageTextShadow, fonts } from "@/lib/theme";
 
 type Entry = { id: string; date: string; entry_text: string; flagged_crisis: boolean };
 
@@ -14,6 +15,7 @@ type Entry = { id: string; date: string; entry_text: string; flagged_crisis: boo
 // skippable. This screen only captures free text and shows past entries.
 export function JournalScreen() {
   const { theme } = useAppTheme();
+  const { getSource } = useBackgroundPrefs();
   const [text, setText] = useState("");
   const [entries, setEntries] = useState<Entry[]>([]);
   const [saving, setSaving] = useState(false);
@@ -55,9 +57,10 @@ export function JournalScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Journal</Text>
-      <Text style={[styles.subtitle, { color: theme.textMuted }]}>
+    <ScreenBackground source={getSource("journal")}>
+      <View style={styles.container}>
+      <Text style={[styles.title, { color: theme.text }, imageTextShadow]}>Journal</Text>
+      <Text style={[styles.subtitle, { color: theme.textMuted }, imageTextShadow]}>
         Private by default - just for you, unless you choose otherwise.
       </Text>
 
@@ -67,7 +70,7 @@ export function JournalScreen() {
         value={text}
         onChangeText={setText}
         multiline
-        style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+        style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface + "F0" }]}
       />
       <PrimaryButton label="Save entry" onPress={handleSave} loading={saving} />
 
@@ -76,19 +79,20 @@ export function JournalScreen() {
         data={entries}
         keyExtractor={(e) => e.id}
         renderItem={({ item }) => (
-          <View style={[styles.entryRow, { borderColor: theme.border }]}>
+          <View style={[styles.entryRow, { borderColor: theme.border, backgroundColor: theme.surface + "D9" }]}>
             <Text style={{ color: theme.textMuted, fontSize: 12 }}>{item.date}</Text>
             <Text style={{ color: theme.text }}>{item.entry_text}</Text>
           </View>
         )}
       />
-    </SafeAreaView>
+      </View>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg },
-  title: { fontSize: fontSizes.title, fontWeight: "700" },
+  title: { fontSize: fontSizes.title, fontFamily: fonts.heading },
   subtitle: { fontSize: fontSizes.label, marginBottom: spacing.md },
   input: {
     borderWidth: 1,
@@ -99,5 +103,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     fontSize: fontSizes.body,
   },
-  entryRow: { paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
+  entryRow: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: spacing.sm,
+  },
 });

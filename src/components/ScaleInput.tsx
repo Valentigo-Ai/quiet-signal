@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useAppTheme } from "@/context/ThemeContext";
-import { spacing, fontSizes } from "@/lib/theme";
+import { spacing, fontSizes, fonts, imageTextShadow } from "@/lib/theme";
 
 // 0-4 tap-scale, plain-language labels rather than raw numbers (Section 4.2).
 // Large touch targets throughout for accessibility.
@@ -18,7 +18,7 @@ export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
+      <Text style={[styles.label, { color: theme.text }, imageTextShadow]}>{label}</Text>
       <View style={styles.row}>
         {scaleLabels.map((text, i) => {
           const selected = value === i;
@@ -56,7 +56,7 @@ export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
 
 const styles = StyleSheet.create({
   container: { marginBottom: spacing.lg },
-  label: { fontSize: fontSizes.title, fontWeight: "600", marginBottom: spacing.sm },
+  label: { fontSize: fontSizes.title, fontFamily: fonts.heading, marginBottom: spacing.sm },
   row: { flexDirection: "row", gap: spacing.xs },
   pill: {
     flex: 1,
@@ -66,5 +66,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.sm,
   },
-  pillText: { fontSize: 12, textAlign: "center", fontWeight: "500" },
+  pillText: { fontSize: 12, textAlign: "center", fontFamily: fonts.body },
 });

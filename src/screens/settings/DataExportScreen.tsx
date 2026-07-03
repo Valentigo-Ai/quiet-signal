@@ -19,15 +19,20 @@ export function DataExportScreen() {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
 
-      const [{ data: checkins }, { data: journal }, { data: recipients }, { data: shared }] = await Promise.all([
+      // shared_messages is filtered by checkin id, so it has to wait for
+      // checkins to come back first - can't all run in one Promise.all
+      // (that was the bug: it referenced checkins before it existed).
+      const [{ data: checkins }, { data: journal }, { data: recipients }] = await Promise.all([
         supabase.from("checkins").select("*").eq("user_id", userId),
         supabase.from("journal_entries").select("*").eq("user_id", userId),
         supabase.from("recipients").select("*").eq("user_id", userId),
-        supabase
-          .from("shared_messages")
-          .select("id, message_text, sent_at, checkin_id, recipient_id")
-          .in("checkin_id", (checkins ?? []).map((c) => c.id)),
       ]);
+
+      const checkinIds: string[] = (checkins ?? []).map((c: { id: string }) => c.id);
+      const { data: shared } = await supabase
+        .from("shared_messages")
+        .select("id, message_text, sent_at, checkin_id, recipient_id")
+        .in("checkin_id", checkinIds);
 
       const bundle = {
         exported_at: new Date().toISOString(),

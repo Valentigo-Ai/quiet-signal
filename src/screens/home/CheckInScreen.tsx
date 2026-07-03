@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, ScrollView, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { CrisisBanner } from "@/components/CrisisBanner";
 import { ScaleInput } from "@/components/ScaleInput";
+import { ScreenBackground } from "@/components/ScreenBackground";
+import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { supabase } from "@/lib/supabase";
-import { spacing, fontSizes } from "@/lib/theme";
+import { spacing, fontSizes, imageTextShadow, fonts } from "@/lib/theme";
 import { useCrisisCheck } from "@/lib/useCrisisCheck";
 
 const PAIN_LABELS: [string, string, string, string, string] = [
@@ -36,6 +37,7 @@ const ENERGY_LABELS: [string, string, string, string, string] = [
 // returning user - three tap-scales, optional note, one button.
 export function CheckInScreen() {
   const { theme } = useAppTheme();
+  const { getSource } = useBackgroundPrefs();
   const navigation = useNavigation<any>();
   useCrisisCheck(); // Flow D - runs quietly on every home screen open
 
@@ -81,34 +83,37 @@ export function CheckInScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScreenBackground source={getSource("checkin")}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
         <CrisisBanner />
-        <Text style={[styles.title, { color: theme.text }]}>How are you today?</Text>
+        <Text style={[styles.title, imageTextShadow, { color: theme.text }]}>How are you today?</Text>
 
         <ScaleInput label="Pain" value={pain} onChange={setPain} scaleLabels={PAIN_LABELS} />
         <ScaleInput label="Anxiety / PTSD state" value={anxiety} onChange={setAnxiety} scaleLabels={ANXIETY_LABELS} />
         <ScaleInput label="Energy" value={energy} onChange={setEnergy} scaleLabels={ENERGY_LABELS} />
 
-        <Text style={[styles.label, { color: theme.text }]}>Anything else? (optional)</Text>
+        <Text style={[styles.label, { color: theme.text }, imageTextShadow]}>Anything else? (optional)</Text>
         <TextInput
           placeholder="A word or two, if you want"
           placeholderTextColor={theme.textMuted}
           value={note}
           onChangeText={setNote}
           multiline
-          style={[styles.noteInput, { color: theme.text, borderColor: theme.border }]}
+          style={[
+            styles.noteInput,
+            { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface + "F0" },
+          ]}
         />
 
         <PrimaryButton label="Log today" onPress={handleLog} loading={saving} />
       </ScrollView>
-    </SafeAreaView>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  title: { fontSize: fontSizes.largeTitle, fontWeight: "700", marginBottom: spacing.lg },
+  title: { fontSize: fontSizes.largeTitle, fontFamily: fonts.heading, marginBottom: spacing.lg },
   label: { fontSize: fontSizes.label, fontWeight: "600", marginBottom: spacing.sm },
   noteInput: {
     borderWidth: 1,

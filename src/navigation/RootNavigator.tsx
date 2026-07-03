@@ -21,15 +21,17 @@ import { RecipientsScreen } from "@/screens/settings/RecipientsScreen";
 import { PrivacyNoticeScreen } from "@/screens/settings/PrivacyNoticeScreen";
 import { DataExportScreen } from "@/screens/settings/DataExportScreen";
 import { DeleteAccountScreen } from "@/screens/settings/DeleteAccountScreen";
+import { BackgroundsScreen } from "@/screens/settings/BackgroundsScreen";
+import { UpgradeScreen } from "@/screens/pro/UpgradeScreen";
 
 const OnboardingStack = createNativeStackNavigator();
 const MainTabs = createBottomTabNavigator();
 const SettingsStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
 
-function OnboardingNavigator() {
+function OnboardingNavigator({ initialRouteName }: { initialRouteName?: string }) {
   return (
-    <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
+    <OnboardingStack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
       <OnboardingStack.Screen name="Welcome" component={WelcomeScreen} />
       <OnboardingStack.Screen name="WhatAreYouDealingWith" component={WhatAreYouDealingWithScreen} />
       <OnboardingStack.Screen name="Consent" component={ConsentScreen} />
@@ -45,6 +47,7 @@ function SettingsNavigator() {
     <SettingsStack.Navigator>
       <SettingsStack.Screen name="SettingsHome" component={SettingsScreen} options={{ title: "Settings" }} />
       <SettingsStack.Screen name="Recipients" component={RecipientsScreen} options={{ title: "Shared with" }} />
+      <SettingsStack.Screen name="Backgrounds" component={BackgroundsScreen} options={{ title: "Backgrounds" }} />
       <SettingsStack.Screen name="PrivacyNotice" component={PrivacyNoticeScreen} options={{ title: "Privacy Notice" }} />
       <SettingsStack.Screen name="DataExport" component={DataExportScreen} options={{ title: "Export my data" }} />
       <SettingsStack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ title: "Delete account" }} />
@@ -69,14 +72,25 @@ function MainNavigator() {
 }
 
 export function RootNavigator() {
-  const { session, loading } = useAuth();
+  const { session, loading, needsConsent } = useAuth();
 
   if (loading) return null; // could add a calm splash/loading state here
+
+  // A session with needsConsent=true means someone signed in (most likely
+  // via Google - Section 4.1) without ever going through the health-data
+  // consent / age-gate screens that the email sign-up flow enforces. Route
+  // them straight into that flow, skipping Welcome/SignUp since they're
+  // already authenticated, before letting them anywhere near the main app.
+  const showOnboarding = !session || needsConsent;
 
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {session ? (
+        {showOnboarding ? (
+          <RootStack.Screen name="Onboarding">
+            {() => <OnboardingNavigator initialRouteName={session ? "WhatAreYouDealingWith" : "Welcome"} />}
+          </RootStack.Screen>
+        ) : (
           <>
             <RootStack.Screen name="Main" component={MainNavigator} />
             <RootStack.Screen
@@ -84,9 +98,12 @@ export function RootNavigator() {
               component={ShareFlowScreen}
               options={{ headerShown: true, title: "Share" }}
             />
+            <RootStack.Screen
+              name="Upgrade"
+              component={UpgradeScreen}
+              options={{ headerShown: true, title: "Quiet Signal Pro", presentation: "modal" }}
+            />
           </>
-        ) : (
-          <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
         )}
       </RootStack.Navigator>
     </NavigationContainer>

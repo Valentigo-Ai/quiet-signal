@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Pressable, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
+import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
+import { ScreenBackground } from "@/components/ScreenBackground";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
-import { spacing, fontSizes } from "@/lib/theme";
+import { spacing, fontSizes, imageTextShadow, fonts } from "@/lib/theme";
 import { CONSENT_VERSION } from "@/constants/legalCopy";
 
 export function SignUpScreen() {
@@ -15,6 +16,7 @@ export function SignUpScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { signUp } = useAuth();
+  const { getSource } = useBackgroundPrefs();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -59,8 +61,9 @@ export function SignUpScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Create your account</Text>
+    <ScreenBackground source={getSource("signup")}>
+      <View style={styles.container}>
+      <Text style={[styles.title, { color: theme.text }, imageTextShadow]}>Create your account</Text>
       <TextInput
         placeholder="Email"
         placeholderTextColor={theme.textMuted}
@@ -68,9 +71,9 @@ export function SignUpScreen() {
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
-        style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+        style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface + "F0" }]}
       />
-      <View style={[styles.passwordRow, { borderColor: theme.border }]}>
+      <View style={[styles.passwordRow, { borderColor: theme.border, backgroundColor: theme.surface + "F0" }]}>
         <TextInput
           placeholder="Password (min 8 characters)"
           placeholderTextColor={theme.textMuted}
@@ -91,18 +94,19 @@ export function SignUpScreen() {
       </View>
       <PrimaryButton label="Create account" onPress={handleSignUp} loading={loading} />
       <Pressable onPress={() => navigation.navigate("Login")} style={{ marginTop: spacing.md, alignItems: "center" }}>
-        <Text style={{ color: theme.textMuted }}>Already have an account? Log in</Text>
+        <Text style={[{ color: theme.textMuted }, imageTextShadow]}>Already have an account? Log in</Text>
       </Pressable>
-      <Text style={[styles.note, { color: theme.textMuted }]}>
+      <Text style={[styles.note, { color: theme.textMuted }, imageTextShadow]}>
         Google sign-in is available from the Login screen as an alternative.
       </Text>
-    </SafeAreaView>
+      </View>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg, justifyContent: "center" },
-  title: { fontSize: fontSizes.title, fontWeight: "700", marginBottom: spacing.lg },
+  title: { fontSize: fontSizes.title, fontFamily: fonts.heading, marginBottom: spacing.lg },
   input: { borderWidth: 1, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, fontSize: fontSizes.body },
   note: { fontSize: 12, textAlign: "center", marginTop: spacing.lg },
   passwordRow: {

@@ -5,7 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
-import { spacing, fontSizes } from "@/lib/theme";
+import { spacing, fontSizes, fonts } from "@/lib/theme";
 
 // Optional, skippable step (Section 4.1 / Flow A step 4). Can always be
 // done later from Settings > Shared with.
@@ -74,7 +74,7 @@ export function AddFirstRecipientScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg, justifyContent: "center" },
-  title: { fontSize: fontSizes.title, fontWeight: "700", marginBottom: spacing.sm },
+  title: { fontSize: fontSizes.title, fontFamily: fonts.heading, marginBottom: spacing.sm },
   subtitle: { fontSize: fontSizes.label, marginBottom: spacing.lg },
   input: { borderWidth: 1, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, fontSize: fontSizes.body },
 });

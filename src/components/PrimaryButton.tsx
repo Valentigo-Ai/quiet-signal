@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, Text, StyleSheet, ActivityIndicator, AccessibilityRole } from "react-native";
 import { useAppTheme } from "@/context/ThemeContext";
-import { spacing, fontSizes } from "@/lib/theme";
+import { spacing, fontSizes, raisedShadow, fonts } from "@/lib/theme";
 
 type Props = {
   label: string;
@@ -34,6 +34,7 @@ export function PrimaryButton({
       accessibilityHint={accessibilityHint}
       style={({ pressed }) => [
         styles.button,
+        variant === "primary" && !disabled ? raisedShadow : null,
         { backgroundColor: bg, opacity: disabled ? 0.5 : pressed ? 0.85 : 1, minHeight: theme.minTouchTarget },
       ]}
     >
@@ -52,6 +53,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: fontSizes.body,
-    fontWeight: "600",
+    fontFamily: fonts.bodyBold,
   },
 });

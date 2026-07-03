@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { spacing, fontSizes } from "@/lib/theme";
+import { spacing, fontSizes, fonts } from "@/lib/theme";
 
 // "What are you dealing with?" - Section 4.1. Optional, skippable, multi-select.
 // Used only to lightly tailor in-app language; never shown to recipients.
@@ -77,7 +77,7 @@ export function WhatAreYouDealingWithScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg },
-  title: { fontSize: fontSizes.title, fontWeight: "700", marginBottom: spacing.sm },
+  title: { fontSize: fontSizes.title, fontFamily: fonts.heading, marginBottom: spacing.sm },
   subtitle: { fontSize: fontSizes.label, marginBottom: spacing.lg },
   option: {
     borderWidth: 1,

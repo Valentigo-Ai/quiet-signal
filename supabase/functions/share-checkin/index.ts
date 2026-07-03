@@ -45,8 +45,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: insertErr?.message ?? "insert failed" }), { status: 500 });
     }
 
+    // Recipients need a page that actually renders the message (web/index.html),
+    // not the raw JSON get-shared-message returns. RECIPIENT_WEB_URL should be
+    // set once the recipient page is hosted (e.g. https://quietsignal.co.uk/share/)
+    // - see README. Falls back to the raw function URL (JSON, not pretty, but
+    // functional) if that secret isn't set yet, so this never hard-breaks.
     const projectUrl = Deno.env.get("SUPABASE_URL")!;
-    const viewUrl = `${projectUrl}/functions/v1/get-shared-message?token=${shared.view_token}`;
+    const recipientWebUrl = Deno.env.get("RECIPIENT_WEB_URL");
+    const viewBase = recipientWebUrl ?? `${projectUrl}/functions/v1/get-shared-message`;
+    const viewUrl = `${viewBase}${viewBase.includes("?") ? "&" : "?"}token=${shared.view_token}`;
 
     let deliveryResult: Record<string, unknown> = { method: recipient.contact_method };
 

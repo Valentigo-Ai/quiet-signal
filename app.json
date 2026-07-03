@@ -6,19 +6,41 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/brand/icon.png",
     "splash": {
-      "backgroundColor": "#F6F1EB"
+      "backgroundColor": "#F6F1EB",
+      "image": "./assets/brand/splash.png",
+      "resizeMode": "contain"
     },
     "android": {
       "package": "com.quietsignal.app",
       "adaptiveIcon": {
-        "backgroundColor": "#F6F1EB"
+        "foregroundImage": "./assets/brand/adaptive-icon.png",
+        "backgroundColor": "#8A6552"
       },
-      "permissions": ["NOTIFICATIONS"]
+      "permissions": [
+        "NOTIFICATIONS"
+      ]
     },
-    "plugins": ["expo-secure-store"],
+    "plugins": [
+      "expo-secure-store",
+      "expo-localization",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/brand/splash.png",
+          "backgroundColor": "#F6F1EB",
+          "imageWidth": 220
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
+    ],
     "extra": {
-      "eas": {}
-    }
+      "eas": {
+        "projectId": "8ed99a7a-8db8-4d54-9135-be7079dad996"
+      }
+    },
+    "owner": "valentigo"
   }
 }

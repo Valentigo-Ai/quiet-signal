@@ -1,23 +1,26 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert, Pressable } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
+import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
+import { ScreenBackground } from "@/components/ScreenBackground";
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { spacing, fontSizes } from "@/lib/theme";
+import { spacing, fontSizes, imageTextShadow, fonts } from "@/lib/theme";
 
-// Email/password login. Google sign-in (Section 4.1) should be wired up via
-// supabase.auth.signInWithOAuth({ provider: 'google' }) once a Google OAuth
-// client is configured in the Supabase Auth dashboard - left as a follow-up
-// since it requires console credentials outside this build.
+// Email/password login, plus Google sign-in (Section 4.1) as an easier
+// alternative. Google needs a one-time OAuth client set up in the Supabase
+// Auth dashboard (Authentication > Providers > Google) before it'll work -
+// see AuthContext.tsx / project notes for the exact steps.
 export function LoginScreen() {
   const { theme } = useAppTheme();
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
+  const { getSource } = useBackgroundPrefs();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -30,9 +33,21 @@ export function LoginScreen() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (e: any) {
+      Alert.alert("Google sign-in failed", e.message ?? String(e));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.text }]}>Welcome back</Text>
+    <ScreenBackground source={getSource("login")}>
+      <View style={styles.container}>
+      <Text style={[styles.title, { color: theme.text }, imageTextShadow]}>Welcome back</Text>
       <TextInput
         placeholder="Email"
         placeholderTextColor={theme.textMuted}
@@ -40,9 +55,9 @@ export function LoginScreen() {
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
-        style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+        style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface + "F0" }]}
       />
-      <View style={[styles.passwordRow, { borderColor: theme.border }]}>
+      <View style={[styles.passwordRow, { borderColor: theme.border, backgroundColor: theme.surface + "F0" }]}>
         <TextInput
           placeholder="Password"
           placeholderTextColor={theme.textMuted}
@@ -61,15 +76,51 @@ export function LoginScreen() {
           <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color={theme.textMuted} />
         </Pressable>
       </View>
-      <PrimaryButton label="Log in" onPress={handleLogin} loading={loading} />
-    </SafeAreaView>
+      <PrimaryButton label="Log in" onPress={handleLogin} loading={loading} disabled={googleLoading} />
+
+      <View style={styles.dividerRow}>
+        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+        <Text style={[styles.dividerLabel, { color: theme.textMuted }, imageTextShadow]}>or</Text>
+        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+      </View>
+
+      <Pressable
+        onPress={handleGoogleLogin}
+        disabled={loading || googleLoading}
+        accessibilityRole="button"
+        accessibilityLabel="Continue with Google"
+        style={[
+          styles.googleButton,
+          { borderColor: theme.border, backgroundColor: theme.surface, minHeight: theme.minTouchTarget, opacity: googleLoading ? 0.6 : 1 },
+        ]}
+      >
+        <Ionicons name="logo-google" size={20} color={theme.text} />
+        <Text style={[styles.googleButtonLabel, { color: theme.text }]}>
+          {googleLoading ? "Connecting..." : "Continue with Google"}
+        </Text>
+      </Pressable>
+      </View>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg, justifyContent: "center" },
-  title: { fontSize: fontSizes.title, fontWeight: "700", marginBottom: spacing.lg },
+  title: { fontSize: fontSizes.title, fontFamily: fonts.heading, marginBottom: spacing.lg },
   input: { borderWidth: 1, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, fontSize: fontSizes.body },
+  dividerRow: { flexDirection: "row", alignItems: "center", marginVertical: spacing.lg },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  dividerLabel: { marginHorizontal: spacing.sm, fontSize: fontSizes.label },
+  googleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: spacing.md,
+  },
+  googleButtonLabel: { fontSize: fontSizes.body, fontWeight: "600" },
   passwordRow: {
     flexDirection: "row",
     alignItems: "center",

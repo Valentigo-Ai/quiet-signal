@@ -1,20 +1,27 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TextInput, StyleSheet, FlatList, Pressable, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
+import { usePro, FREE_MAX_RECIPIENTS } from "@/context/ProContext";
+import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
+import { ScreenBackground } from "@/components/ScreenBackground";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
-import { spacing, fontSizes } from "@/lib/theme";
+import { spacing, fontSizes, radii } from "@/lib/theme";
 
 type Recipient = { id: string; recipient_label: string; contact_method: string; contact_value: string };
 
 // Section 4.7 - add/remove people, each with a simple user-chosen label.
 export function RecipientsScreen() {
   const { theme } = useAppTheme();
+  const { isPro } = usePro();
+  const { getSource } = useBackgroundPrefs();
+  const navigation = useNavigation<any>();
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [label, setLabel] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
+  const atFreeLimit = !isPro && recipients.length >= FREE_MAX_RECIPIENTS;
 
   const load = async () => {
     const { data } = await supabase
@@ -30,6 +37,10 @@ export function RecipientsScreen() {
 
   const handleAdd = async () => {
     if (!label || !phone) return;
+    if (atFreeLimit) {
+      navigation.navigate("Upgrade");
+      return;
+    }
     setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -57,14 +68,14 @@ export function RecipientsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScreenBackground source={getSource("recipients")}>
       <View style={{ padding: spacing.lg }}>
         <TextInput
           placeholder="Label (e.g. Partner, Mum)"
           placeholderTextColor={theme.textMuted}
           value={label}
           onChangeText={setLabel}
-          style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+          style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface + "F0" }]}
         />
         <TextInput
           placeholder="Phone number"
@@ -72,9 +83,16 @@ export function RecipientsScreen() {
           keyboardType="phone-pad"
           value={phone}
           onChangeText={setPhone}
-          style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+          style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface + "F0" }]}
         />
-        <PrimaryButton label="Add" onPress={handleAdd} loading={saving} />
+        {atFreeLimit ? (
+          <View style={[styles.upsell, { backgroundColor: theme.primarySoft, borderColor: theme.border, borderRadius: radii.md }]}>
+            <Text style={{ color: theme.text }}>
+              Free plan includes 1 recipient. Upgrade to Pro to share with more people.
+            </Text>
+          </View>
+        ) : null}
+        <PrimaryButton label={atFreeLimit ? "Upgrade to add more" : "Add"} onPress={handleAdd} loading={saving} />
       </View>
 
       <FlatList
@@ -82,7 +100,7 @@ export function RecipientsScreen() {
         keyExtractor={(r) => r.id}
         contentContainerStyle={{ paddingHorizontal: spacing.lg }}
         renderItem={({ item }) => (
-          <View style={[styles.row, { borderColor: theme.border }]}>
+          <View style={[styles.row, { borderColor: theme.border, backgroundColor: theme.surface + "D9" }]}>
             <View>
               <Text style={{ color: theme.text, fontWeight: "600" }}>{item.recipient_label}</Text>
               <Text style={{ color: theme.textMuted }}>{item.contact_value}</Text>
@@ -93,18 +111,22 @@ export function RecipientsScreen() {
           </View>
         )}
       />
-    </SafeAreaView>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   input: { borderWidth: 1, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, fontSize: fontSizes.body },
+  upsell: { borderWidth: 1, padding: spacing.md, marginBottom: spacing.md },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: spacing.xs,
   },
 });
