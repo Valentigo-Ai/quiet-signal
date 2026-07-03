@@ -14,6 +14,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import Sentiment from "npm:sentiment@5";
+import { extractThemesByCategory } from "../_shared/themeDictionary.ts";
 
 // Non-exhaustive starter wordlist. This MUST be reviewed and expanded by a
 // clinical/safety advisor before public launch - ship-blocking per spec
@@ -50,27 +51,6 @@ const CRISIS_PATTERNS: RegExp[] = [
 
 function checkCrisisLanguage(text: string): boolean {
   return CRISIS_PATTERNS.some((p) => p.test(text));
-}
-
-// Simple stopword list for theme extraction (word-frequency, not clinical NLP).
-const STOPWORDS = new Set(
-  "the a an and or but if then so to of in on at for with is are was were be been being i me my myself we our you your he she it they this that these those as not no do does did have has had will would can could should just really very today day"
-    .split(" "),
-);
-
-function extractThemes(texts: string[], topN = 5): string[] {
-  const freq = new Map<string, number>();
-  for (const t of texts) {
-    const words = t.toLowerCase().match(/[a-z']+/g) ?? [];
-    for (const w of words) {
-      if (w.length < 4 || STOPWORDS.has(w)) continue;
-      freq.set(w, (freq.get(w) ?? 0) + 1);
-    }
-  }
-  return [...freq.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, topN)
-    .map(([w]) => w);
 }
 
 Deno.serve(async (req) => {
@@ -141,21 +121,22 @@ Deno.serve(async (req) => {
 
     for (const [userId, bucket] of byUser.entries()) {
       if (bucket.texts.length === 0) continue;
-      const themes = extractThemes(bucket.texts);
+      const themeCounts = extractThemesByCategory(bucket.texts);
       const avgSentiment =
         bucket.scores.reduce((a, b) => a + b, 0) / (bucket.scores.length || 1);
 
       // Framed strictly as a personal reflection aid - never clinical (Section 11.4).
-      const topTheme = themes[0];
-      const summary = topTheme
-        ? `You mentioned "${topTheme}" ${bucket.texts.filter((t) => t.toLowerCase().includes(topTheme)).length} times this week. Just something you might want to reflect on - not a diagnosis or recommendation.`
-        : "A quiet week for journal entries - nothing in particular stood out.";
+      const topLabels = themeCounts.map((t) => t.label);
+      const summary =
+        topLabels.length > 0
+          ? `${topLabels.slice(0, 3).join(" and ")} came up most in what you wrote this week. Just something you might want to reflect on - not a diagnosis or recommendation.`
+          : "A quiet week for journal entries - nothing in particular stood out.";
 
       await supabase.from("journal_insights").upsert(
         {
           user_id: userId,
           week_start: weekStartStr,
-          themes,
+          themes: topLabels,
           correlations: { avg_sentiment: avgSentiment },
           summary_text: summary,
         },
