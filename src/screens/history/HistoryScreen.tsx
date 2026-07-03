@@ -2,13 +2,28 @@ import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, Share, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import Svg, { Polyline, Line } from "react-native-svg";
+import Svg, { Polyline, Line, Circle } from "react-native-svg";
 import { useAppTheme } from "@/context/ThemeContext";
 import { usePro, FREE_HISTORY_RANGES, PRO_ONLY_HISTORY_RANGES } from "@/context/ProContext";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { ScreenBackground } from "@/components/ScreenBackground";
+import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { supabase } from "@/lib/supabase";
-import { spacing, fontSizes, radii, imageTextShadow, fonts } from "@/lib/theme";
+import { spacing, fontSizes, radii, fonts } from "@/lib/theme";
+
+// Minimum check-ins before a "trend" line is shown at all. Two points
+// always look like a confident straight-line trend even when they're just
+// noise - misleading for something as personal as pain/anxiety/energy. Below
+// this the screen just shows the daily list, which is honest at any amount
+// of data.
+const MIN_POINTS_FOR_TREND = 3;
+
+function describeTrend(first: number, last: number): "up" | "down" | "steady" {
+  const diff = last - first;
+  if (diff >= 1) return "up";
+  if (diff <= -1) return "down";
+  return "steady";
+}
 
 type Checkin = {
   id: string;
@@ -51,21 +66,45 @@ export function HistoryScreen() {
     const w = 300;
     const h = 80;
     const n = Math.max(checkins.length, 1);
-    const toPoints = (key: keyof Checkin) =>
-      checkins
-        .map((c, i) => {
-          const x = (i / Math.max(n - 1, 1)) * w;
-          const y = h - ((c[key] as number) / 4) * h;
-          return `${x},${y}`;
-        })
-        .join(" ");
+    const toXY = (key: keyof Checkin) =>
+      checkins.map((c, i) => ({
+        x: (i / Math.max(n - 1, 1)) * w,
+        y: h - ((c[key] as number) / 4) * h,
+      }));
+    const toPolyline = (points: { x: number; y: number }[]) => points.map((p) => `${p.x},${p.y}`).join(" ");
+    const painXY = toXY("pain_score");
+    const anxietyXY = toXY("anxiety_score");
+    const energyXY = toXY("energy_score");
     return {
-      pain: toPoints("pain_score"),
-      anxiety: toPoints("anxiety_score"),
-      energy: toPoints("energy_score"),
+      pain: toPolyline(painXY),
+      anxiety: toPolyline(anxietyXY),
+      energy: toPolyline(energyXY),
+      painXY,
+      anxietyXY,
+      energyXY,
       w,
       h,
     };
+  }, [checkins]);
+
+  // Plain-language readout above the chart. A line graph asks the viewer to
+  // do visual-comparison work (compare heights, notice slope direction) that
+  // isn't reliable for everyone, especially on a day where pain or anxiety
+  // is already high - a sentence says the same thing without that step.
+  const trendSummary = useMemo(() => {
+    if (checkins.length < MIN_POINTS_FOR_TREND) return null;
+    const first = checkins[0];
+    const last = checkins[checkins.length - 1];
+    const parts: string[] = [];
+    const pain = describeTrend(first.pain_score, last.pain_score);
+    const anxiety = describeTrend(first.anxiety_score, last.anxiety_score);
+    const energy = describeTrend(first.energy_score, last.energy_score);
+    const phrase = (label: string, dir: "up" | "down" | "steady") =>
+      dir === "steady" ? `${label} stayed about the same` : `${label} trended ${dir}`;
+    parts.push(phrase("pain", pain));
+    parts.push(phrase("anxiety", anxiety));
+    parts.push(phrase("energy", energy));
+    return `Over this period: ${parts.join(", ")}.`;
   }, [checkins]);
 
   const selectRange = (r: (typeof RANGES)[number]) => {
@@ -104,7 +143,9 @@ export function HistoryScreen() {
   return (
     <ScreenBackground source={getSource("history")}>
       <View style={styles.container}>
-      <Text style={[styles.title, { color: theme.text }, imageTextShadow]}>History</Text>
+      <TextOnPhoto style={{ marginBottom: spacing.md, alignSelf: "flex-start" }}>
+        <Text style={[styles.title, { color: theme.text }]}>History</Text>
+      </TextOnPhoto>
 
       <View style={styles.rangeRow}>
         {RANGES.map((r) => {
@@ -134,20 +175,76 @@ export function HistoryScreen() {
       </Pressable>
 
       {checkins.length === 0 ? (
-        <Text style={[{ color: theme.textMuted, padding: spacing.lg }, imageTextShadow]}>No check-ins in this range yet.</Text>
+        <TextOnPhoto style={{ margin: spacing.lg, alignSelf: "flex-start" }}>
+          <Text style={{ color: theme.textMuted }}>No check-ins in this range yet.</Text>
+        </TextOnPhoto>
       ) : (
         <>
-          <Svg width={trendPoints.w} height={trendPoints.h + 10} style={{ alignSelf: "center", marginBottom: spacing.md }}>
-            <Line x1={0} y1={trendPoints.h} x2={trendPoints.w} y2={trendPoints.h} stroke={theme.border} strokeWidth={1} />
-            <Polyline points={trendPoints.pain} fill="none" stroke={theme.danger} strokeWidth={2} />
-            <Polyline points={trendPoints.anxiety} fill="none" stroke={theme.primary} strokeWidth={2} />
-            <Polyline points={trendPoints.energy} fill="none" stroke={theme.success} strokeWidth={2} />
-          </Svg>
-          <View style={styles.legendRow}>
-            <LegendDot color={theme.danger} label="Pain" textColor={theme.text} />
-            <LegendDot color={theme.primary} label="Anxiety" textColor={theme.text} />
-            <LegendDot color={theme.success} label="Energy" textColor={theme.text} />
-          </View>
+          {checkins.length < MIN_POINTS_FOR_TREND ? (
+            <TextOnPhoto style={{ marginBottom: spacing.md, alignSelf: "flex-start" }}>
+              <Text style={{ color: theme.textMuted }}>
+                Log a few more days to see a trend - {MIN_POINTS_FOR_TREND - checkins.length} more and it'll show up
+                here.
+              </Text>
+            </TextOnPhoto>
+          ) : (
+            <>
+              {trendSummary && (
+                <TextOnPhoto style={{ marginBottom: spacing.md, alignSelf: "flex-start" }}>
+                  <Text style={{ color: theme.text }}>{trendSummary}</Text>
+                </TextOnPhoto>
+              )}
+              <View style={{ alignSelf: "center", marginBottom: spacing.xs }}>
+                <Svg width={trendPoints.w} height={trendPoints.h + 10}>
+                  <Line x1={0} y1={trendPoints.h} x2={trendPoints.w} y2={trendPoints.h} stroke={theme.border} strokeWidth={1} />
+                  {/* Distinct dash patterns per line, not just color - when two
+                      metrics have the same score on the same day (common for
+                      pain/anxiety), their lines land on identical pixels and
+                      whichever is drawn last used to hide the other
+                      completely. Solid/dashed/dotted stays visible either way. */}
+                  <Polyline points={trendPoints.pain} fill="none" stroke={theme.danger} strokeWidth={2} />
+                  <Polyline
+                    points={trendPoints.anxiety}
+                    fill="none"
+                    stroke={theme.primary}
+                    strokeWidth={2}
+                    strokeDasharray="6,4"
+                  />
+                  <Polyline
+                    points={trendPoints.energy}
+                    fill="none"
+                    stroke={theme.success}
+                    strokeWidth={2}
+                    strokeDasharray="1,4"
+                    strokeLinecap="round"
+                  />
+                  {trendPoints.painXY.map((p, i) => (
+                    <Circle key={`pain-${i}`} cx={p.x} cy={p.y} r={3} fill={theme.danger} />
+                  ))}
+                  {trendPoints.anxietyXY.map((p, i) => (
+                    <Circle key={`anxiety-${i}`} cx={p.x} cy={p.y} r={3} fill={theme.primary} />
+                  ))}
+                  {trendPoints.energyXY.map((p, i) => (
+                    <Circle key={`energy-${i}`} cx={p.x} cy={p.y} r={3} fill={theme.success} />
+                  ))}
+                </Svg>
+                <View style={styles.axisRow}>
+                  <Text style={{ color: theme.textMuted, fontSize: 11 }}>{checkins[0].date}</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 11 }}>
+                    {checkins[checkins.length - 1].date}
+                  </Text>
+                </View>
+                <Text style={{ color: theme.textMuted, fontSize: 11, textAlign: "center", marginTop: 2 }}>
+                  Top of chart = higher score (0-4 scale) · bottom = lower
+                </Text>
+              </View>
+              <View style={styles.legendRow}>
+                <LegendDot color={theme.danger} label="Pain (solid)" textColor={theme.text} />
+                <LegendDot color={theme.primary} label="Anxiety (dashed)" textColor={theme.text} />
+                <LegendDot color={theme.success} label="Energy (dotted)" textColor={theme.text} />
+              </View>
+            </>
+          )}
 
           <FlatList
             data={[...checkins].reverse()}
@@ -181,7 +278,7 @@ function LegendDot({ color, label, textColor }: { color: string; label: string; 
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg },
-  title: { fontSize: fontSizes.title, fontFamily: fonts.heading, marginBottom: spacing.md },
+  title: { fontSize: fontSizes.title, fontFamily: fonts.heading },
   rangeRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   rangeChip: { paddingHorizontal: spacing.md, borderRadius: 20, justifyContent: "center" },
   exportRow: {
@@ -191,7 +288,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.md,
   },
-  legendRow: { flexDirection: "row", justifyContent: "center", marginBottom: spacing.md },
+  legendRow: { flexDirection: "row", justifyContent: "center", marginBottom: spacing.md, flexWrap: "wrap" },
+  axisRow: { flexDirection: "row", justifyContent: "space-between", width: 300, alignSelf: "center" },
   row: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,

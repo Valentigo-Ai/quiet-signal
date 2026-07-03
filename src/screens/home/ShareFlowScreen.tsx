@@ -4,9 +4,10 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenBackground } from "@/components/ScreenBackground";
+import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { supabase, generateMessage, shareCheckin } from "@/lib/supabase";
-import { spacing, fontSizes, imageTextShadow, fonts } from "@/lib/theme";
+import { spacing, fontSizes, fonts } from "@/lib/theme";
 
 type Recipient = { id: string; recipient_label: string };
 
@@ -90,23 +91,37 @@ export function ShareFlowScreen() {
   return (
     <ScreenBackground source={getSource("share")} edges={["bottom", "left", "right"]}>
       <View style={styles.container}>
-        <Text style={[styles.title, imageTextShadow, { color: theme.text }]}>Share today's check-in?</Text>
+        <TextOnPhoto style={{ marginBottom: spacing.lg }}>
+          <Text style={[styles.title, { color: theme.text }]}>Share today's check-in?</Text>
+        </TextOnPhoto>
 
         {loadingMessage ? (
           <ActivityIndicator style={{ marginVertical: spacing.lg }} color={theme.primary} />
         ) : (
           <>
-            <Text style={[styles.label, { color: theme.text }]}>Message preview</Text>
+            <TextOnPhoto style={{ marginBottom: spacing.sm }}>
+              <Text style={[styles.label, { color: theme.text }]}>Message preview</Text>
+            </TextOnPhoto>
+            {/* This input had no background at all before, so the photo
+                showed straight through it - the exact "can't read the
+                writing" issue reported from a real device. Every other
+                text input in the app (CheckIn's note, Journal's entry box)
+                already gets an opaque backgroundColor; this one was missed. */}
             <TextInput
               value={message}
               onChangeText={setMessage}
               multiline
-              style={[styles.messageBox, { color: theme.text, borderColor: theme.border }]}
+              style={[
+                styles.messageBox,
+                { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface + "F0" },
+              ]}
             />
 
-            <Text style={[styles.label, { color: theme.text }]}>Share with</Text>
+            <TextOnPhoto style={{ marginBottom: spacing.sm }}>
+              <Text style={[styles.label, { color: theme.text }]}>Share with</Text>
+            </TextOnPhoto>
             {recipients.length === 0 ? (
-              <View style={{ marginBottom: spacing.md }}>
+              <View style={[styles.noRecipientsCard, { backgroundColor: theme.surface + "F0", borderColor: theme.border }]}>
                 <Text style={{ color: theme.textMuted, marginBottom: spacing.sm }}>
                   You haven't added anyone yet - add someone to let them know how you're doing, or keep this
                   just for you.
@@ -176,6 +191,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     justifyContent: "center",
     marginRight: spacing.sm,
+  },
+  noRecipientsCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   addRecipientButton: {
     borderWidth: 1,

@@ -25,7 +25,7 @@ export function SettingsScreen() {
   const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
   const [pickerVisible, setPickerVisible] = useState(false);
 
-  const Row = ({ label, onPress }: { label: string; onPress: () => void }) => (
+  const Row = ({ label, subtitle, onPress }: { label: string; subtitle?: string; onPress: () => void }) => (
     <Pressable
       onPress={onPress}
       style={[
@@ -35,6 +35,9 @@ export function SettingsScreen() {
       accessibilityRole="button"
     >
       <Text style={{ color: theme.text, fontSize: fontSizes.body }}>{label}</Text>
+      {subtitle ? (
+        <Text style={{ color: theme.textMuted, fontSize: fontSizes.label, marginTop: 2 }}>{subtitle}</Text>
+      ) : null}
     </Pressable>
   );
 
@@ -58,7 +61,17 @@ export function SettingsScreen() {
         <TextOnPhoto style={styles.sectionPill}>
           <Text style={[styles.section, { color: theme.textMuted }]}>SHARING</Text>
         </TextOnPhoto>
-        <Row label="Manage shared recipients" onPress={() => navigation.navigate("Recipients")} />
+        {/* Discoverability fix: this used to just say "Manage shared
+            recipients", which doesn't tell a new user that this is where
+            you set up who your check-ins go to, or that keeping everything
+            private is just as valid a choice. Spelling that out here means
+            people can set sharing up ahead of time in Settings, rather than
+            only ever discovering it in the moment on the Share screen. */}
+        <Row
+          label="Choose who to share with, or keep it private"
+          subtitle="Add the people you'd like to let know how you're doing - totally optional"
+          onPress={() => navigation.navigate("Recipients")}
+        />
 
         <TextOnPhoto style={styles.sectionPill}>
           <Text style={[styles.section, { color: theme.textMuted }]}>APPEARANCE</Text>
