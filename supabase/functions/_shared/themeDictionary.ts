@@ -274,3 +274,27 @@ export function extractThemesByCategory(texts: string[], topN = 5): ThemeCount[]
     .slice(0, topN)
     .map(([theme, count]) => ({ theme, label: THEME_LABELS[theme], count }));
 }
+
+/**
+ * Like extractThemesByCategory, but returns every theme's raw hit count
+ * instead of just the top N. Used where counts need to be merged or
+ * accumulated over multiple runs (e.g. the check-in archival job, where
+ * a single calendar month can be summarized incrementally across several
+ * nightly runs as more of its days individually cross the retention
+ * window) - truncating to a top-N here would lose the counts needed to
+ * merge correctly.
+ */
+export function countThemeOccurrences(texts: string[]): Partial<Record<ThemeId, number>> {
+  const counts: Partial<Record<ThemeId, number>> = {};
+
+  for (const text of texts) {
+    for (const theme of Object.keys(THEME_PATTERNS) as ThemeId[]) {
+      const patterns = THEME_PATTERNS[theme];
+      if (patterns.some((p) => p.test(text))) {
+        counts[theme] = (counts[theme] ?? 0) + 1;
+      }
+    }
+  }
+
+  return counts;
+}
