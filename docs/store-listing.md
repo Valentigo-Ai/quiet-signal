@@ -54,7 +54,7 @@ QUIET SIGNAL PRO (optional)
 
 The core app - check-ins, journal, history, and crisis support - is free, forever, for everyone.
 Pro is an optional upgrade for people who want more: share with more than one person, see extended
-90-day trends and export an appointment-ready summary, and unlock more background photo options.
+90-day trends and export a summary to share with anyone you choosery, and unlock more background photo options.
 
 Quiet Signal is not a diagnostic tool, a crisis service, or a replacement for professional care.
 If you're in immediate danger, please contact your local emergency number.
