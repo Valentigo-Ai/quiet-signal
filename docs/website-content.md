@@ -25,7 +25,7 @@ After logging a check-in, choose to send a short, plain-language message to some
 partner, a friend, a family member. Nothing is ever shared automatically. You decide, every time.
 
 **Section: Built with veterans and military families in mind - open to everyone**
-Quiet Signal grew out of a need for a simple way for people managing chronic pain and PTSD to stay
+Quiet Signal grew out of a need for a simple way for people living with chronic pain and PTSD to stay
 connected to the people who care about them. Crisis support resources are country-aware and always
 one tap away, never hidden behind a login or a paywall.
 
@@ -51,13 +51,13 @@ quiet habit that can make it easier to stay connected on the harder days.
 
 **Section: Who it's for**
 Quiet Signal was built with the chronic pain and PTSD community in mind, including veterans and
-military families managing both. It's open to anyone who finds it easier to log a status than say
+military families living with both. It's open to anyone who finds it easier to log a status than say
 it out loud.
 
 **Section: Pro**
 The core app - check-ins, journal, history, and crisis support - is free, forever, for everyone.
 Quiet Signal Pro is an optional upgrade for people who want to share with more than one person, see
-extended 90-day trends, or export an appointment-ready summary.
+extended 90-day trends, or export a summary to share with anyone you choose.
 
 ---
 
