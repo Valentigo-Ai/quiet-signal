@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, Share, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import Svg, { Polyline, Line } from "react-native-svg";
 import { useAppTheme } from "@/context/ThemeContext";
 import { usePro, FREE_HISTORY_RANGES, PRO_ONLY_HISTORY_RANGES } from "@/context/ProContext";
@@ -29,6 +30,7 @@ export function HistoryScreen() {
   const { isPro } = usePro();
   const { getSource } = useBackgroundPrefs();
   const navigation = useNavigation<any>();
+  const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
   const [range, setRange] = useState<(typeof RANGES)[number]>(7);
   const [checkins, setCheckins] = useState<Checkin[]>([]);
 
@@ -150,6 +152,7 @@ export function HistoryScreen() {
           <FlatList
             data={[...checkins].reverse()}
             keyExtractor={(c) => c.id}
+            contentContainerStyle={{ paddingBottom: tabBarHeight + spacing.lg }}
             renderItem={({ item }) => (
               <View style={[styles.row, { borderColor: theme.border, backgroundColor: theme.surface + "D9" }]}>
                 <Text style={{ color: theme.text, fontWeight: "600" }}>{item.date}</Text>

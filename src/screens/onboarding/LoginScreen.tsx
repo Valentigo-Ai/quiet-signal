@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
@@ -14,6 +15,7 @@ import { spacing, fontSizes, imageTextShadow, fonts } from "@/lib/theme";
 // see AuthContext.tsx / project notes for the exact steps.
 export function LoginScreen() {
   const { theme } = useAppTheme();
+  const navigation = useNavigation<any>();
   const { signIn, signInWithGoogle } = useAuth();
   const { getSource } = useBackgroundPrefs();
   const [email, setEmail] = useState("");
@@ -27,7 +29,15 @@ export function LoginScreen() {
     try {
       await signIn(email, password);
     } catch (e: any) {
-      Alert.alert("Login failed", e.message ?? String(e));
+      // Deliberately generic - doesn't confirm whether the email has an
+      // account. Same "invalid credentials" wording Supabase itself returns
+      // for both a wrong password and a non-existent email; changing that
+      // would let anyone check whether a given email uses Quiet Signal,
+      // which is itself sensitive information for this kind of app.
+      Alert.alert(
+        "Couldn't log you in",
+        "Double-check your email and password and try again. New here? Use \"Create an account\" below."
+      );
     } finally {
       setLoading(false);
     }
@@ -47,7 +57,9 @@ export function LoginScreen() {
   return (
     <ScreenBackground source={getSource("login")}>
       <View style={styles.container}>
-      <Text style={[styles.title, { color: theme.text }, imageTextShadow]}>Welcome back</Text>
+      <View style={[styles.titlePill, { backgroundColor: theme.surface + "F0" }]}>
+        <Text style={[styles.title, { color: theme.text }]}>Welcome back</Text>
+      </View>
       <TextInput
         placeholder="Email"
         placeholderTextColor={theme.textMuted}
@@ -99,6 +111,10 @@ export function LoginScreen() {
           {googleLoading ? "Connecting..." : "Continue with Google"}
         </Text>
       </Pressable>
+
+      <Pressable onPress={() => navigation.navigate("SignUp")} style={{ marginTop: spacing.md, alignItems: "center" }}>
+        <Text style={[{ color: theme.textMuted }, imageTextShadow]}>New here? Create an account</Text>
+      </Pressable>
       </View>
     </ScreenBackground>
   );
@@ -106,7 +122,8 @@ export function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg, justifyContent: "center" },
-  title: { fontSize: fontSizes.title, fontFamily: fonts.heading, marginBottom: spacing.lg },
+  titlePill: { alignSelf: "flex-start", borderRadius: 12, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.lg },
+  title: { fontSize: fontSizes.title, fontFamily: fonts.heading },
   input: { borderWidth: 1, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, fontSize: fontSizes.body },
   dividerRow: { flexDirection: "row", alignItems: "center", marginVertical: spacing.lg },
   dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },

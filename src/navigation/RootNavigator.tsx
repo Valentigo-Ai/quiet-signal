@@ -3,6 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useAuth } from "@/context/AuthContext";
+import { useAppTheme } from "@/context/ThemeContext";
 
 import { WelcomeScreen } from "@/screens/onboarding/WelcomeScreen";
 import { WhatAreYouDealingWithScreen } from "@/screens/onboarding/WhatAreYouDealingWithScreen";
@@ -56,8 +57,26 @@ function SettingsNavigator() {
 }
 
 function MainNavigator() {
+  const { theme } = useAppTheme();
   return (
-    <MainTabs.Navigator screenOptions={{ headerShown: false }}>
+    <MainTabs.Navigator
+      screenOptions={{
+        headerShown: false,
+        // Floating, semi-opaque tab bar (React Navigation's own recommended
+        // pattern for a full-bleed image behind the tab bar: absolute
+        // position + a translucent tabBarStyle background, rather than a
+        // solid docked bar) so each screen's photo runs the full height of
+        // the device edge-to-edge instead of stopping above a solid strip.
+        // Screens add bottom padding via useBottomTabBarHeight() so content
+        // doesn't sit underneath it.
+        tabBarStyle: {
+          position: "absolute",
+          backgroundColor: theme.surface + "F0",
+          borderTopWidth: 0,
+          elevation: 0,
+        },
+      }}
+    >
       <MainTabs.Screen name="CheckIn" component={CheckInScreen} options={{ title: "Today" }} />
       <MainTabs.Screen name="History" component={HistoryScreen} options={{ title: "History" }} />
       <MainTabs.Screen name="Journal" component={JournalScreen} options={{ title: "Journal" }} />

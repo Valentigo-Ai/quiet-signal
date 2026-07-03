@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, Linking, Pressable, ScrollView } from "react-native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useCrisisCountry } from "@/context/CrisisCountryContext";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { ScreenBackground } from "@/components/ScreenBackground";
-import { spacing, fontSizes, radii, cardShadow, imageTextShadow, fonts } from "@/lib/theme";
+import { TextOnPhoto } from "@/components/TextOnPhoto";
+import { spacing, fontSizes, radii, cardShadow, fonts } from "@/lib/theme";
 import {
   CrisisResource,
   getCrisisDisclaimer,
@@ -24,6 +26,7 @@ export function CrisisResourcesScreen() {
   const { theme } = useAppTheme();
   const { country, info, setCountry } = useCrisisCountry();
   const { getSource } = useBackgroundPrefs();
+  const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
   const [pickerVisible, setPickerVisible] = useState(false);
 
   const generalResources = getGeneralResources(info);
@@ -48,8 +51,10 @@ export function CrisisResourcesScreen() {
 
   return (
     <ScreenBackground source={getSource("crisis")}>
-      <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
-        <Text style={[styles.title, { color: theme.text }, imageTextShadow]}>Support</Text>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: tabBarHeight + spacing.lg }}>
+        <TextOnPhoto style={{ marginBottom: spacing.md }}>
+          <Text style={[styles.title, { color: theme.text }]}>Support</Text>
+        </TextOnPhoto>
 
         <Pressable
           onPress={() => setPickerVisible(true)}
@@ -62,7 +67,9 @@ export function CrisisResourcesScreen() {
           </Text>
         </Pressable>
 
-        <Text style={[styles.disclaimer, { color: theme.danger }, imageTextShadow]}>{getCrisisDisclaimer(info)}</Text>
+        <TextOnPhoto style={styles.disclaimerPill}>
+          <Text style={[styles.disclaimer, { color: theme.danger }]}>{getCrisisDisclaimer(info)}</Text>
+        </TextOnPhoto>
 
         {generalResources.map((r) => (
           <ResourceCard key={r.name} r={r} />
@@ -70,19 +77,25 @@ export function CrisisResourcesScreen() {
 
         {veteranResources.length > 0 && (
           <>
-            <Text style={[styles.sectionHeading, { color: theme.textMuted }, imageTextShadow]}>FOR VETERANS & MILITARY FAMILIES</Text>
-            <Text style={[styles.sectionNote, { color: theme.textMuted }, imageTextShadow]}>
-              If that's you, here are some services specifically for you.
-            </Text>
+            <TextOnPhoto style={{ marginBottom: spacing.xs }}>
+              <Text style={[styles.sectionHeading, { color: theme.textMuted }]}>FOR VETERANS & MILITARY FAMILIES</Text>
+            </TextOnPhoto>
+            <TextOnPhoto style={{ marginBottom: spacing.sm }}>
+              <Text style={[styles.sectionNote, { color: theme.textMuted }]}>
+                If that's you, here are some services specifically for you.
+              </Text>
+            </TextOnPhoto>
             {veteranResources.map((r) => (
               <ResourceCard key={r.name} r={r} />
             ))}
           </>
         )}
 
-        <Text style={[styles.footer, { color: theme.textMuted }, imageTextShadow]}>
-          If you're in immediate danger, please call {info.emergencyNumber}.
-        </Text>
+        <TextOnPhoto style={{ alignSelf: "center", marginTop: spacing.lg }}>
+          <Text style={[styles.footer, { color: theme.textMuted }]}>
+            If you're in immediate danger, please call {info.emergencyNumber}.
+          </Text>
+        </TextOnPhoto>
       </ScrollView>
 
       <RegionPicker
@@ -97,14 +110,15 @@ export function CrisisResourcesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  title: { fontSize: fontSizes.largeTitle, fontFamily: fonts.heading, marginBottom: spacing.md },
+  title: { fontSize: fontSizes.largeTitle, fontFamily: fonts.heading },
   regionRow: { borderWidth: 1, borderRadius: 10, padding: spacing.sm, marginBottom: spacing.md },
-  disclaimer: { fontSize: fontSizes.label, marginBottom: spacing.lg, lineHeight: 22 },
-  sectionHeading: { fontSize: 12, fontFamily: fonts.bodyBold, letterSpacing: 0.5, marginBottom: spacing.xs },
-  sectionNote: { fontSize: fontSizes.label, marginBottom: spacing.sm },
+  disclaimerPill: { marginBottom: spacing.lg },
+  disclaimer: { fontSize: fontSizes.label, lineHeight: 22 },
+  sectionHeading: { fontSize: 12, fontFamily: fonts.bodyBold, letterSpacing: 0.5 },
+  sectionNote: { fontSize: fontSizes.label },
   card: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.md, marginBottom: spacing.md },
   name: { fontSize: fontSizes.title, fontFamily: fonts.heading },
   description: { fontSize: fontSizes.label, marginBottom: spacing.sm },
   callButton: { borderRadius: 10, alignItems: "center", justifyContent: "center", padding: spacing.sm },
-  footer: { textAlign: "center", marginTop: spacing.lg, fontSize: fontSizes.label },
+  footer: { textAlign: "center", fontSize: fontSizes.label },
 });

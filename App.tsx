@@ -29,7 +29,11 @@ export default function App() {
         <BackgroundPrefsProvider>
           <CrisisCountryProvider>
             <AuthProvider>
-              <StatusBar style="auto" />
+              {/* translucent + transparent background so the full-screen photo behind
+                  each screen renders all the way to the top edge on Android instead
+                  of sitting under an opaque status bar strip (iOS is already
+                  translucent-over-content by default). */}
+              <StatusBar style="auto" translucent backgroundColor="transparent" />
               <RootNavigator />
             </AuthProvider>
           </CrisisCountryProvider>

@@ -63,7 +63,9 @@ export function SignUpScreen() {
   return (
     <ScreenBackground source={getSource("signup")}>
       <View style={styles.container}>
-      <Text style={[styles.title, { color: theme.text }, imageTextShadow]}>Create your account</Text>
+      <View style={[styles.titlePill, { backgroundColor: theme.surface + "F0" }]}>
+        <Text style={[styles.title, { color: theme.text }]}>Create your account</Text>
+      </View>
       <TextInput
         placeholder="Email"
         placeholderTextColor={theme.textMuted}
@@ -106,7 +108,8 @@ export function SignUpScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg, justifyContent: "center" },
-  title: { fontSize: fontSizes.title, fontFamily: fonts.heading, marginBottom: spacing.lg },
+  titlePill: { alignSelf: "flex-start", borderRadius: 12, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.lg },
+  title: { fontSize: fontSizes.title, fontFamily: fonts.heading },
   input: { borderWidth: 1, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, fontSize: fontSizes.body },
   note: { fontSize: 12, textAlign: "center", marginTop: spacing.lg },
   passwordRow: {

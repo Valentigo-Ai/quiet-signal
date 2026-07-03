@@ -43,7 +43,33 @@ export type BackgroundImageId =
   | "roseArchway"
   | "oceanSunsetRocks"
   | "figureSunset"
-  | "starlitLake";
+  | "starlitLake"
+  | "coastView1"
+  | "coastView2"
+  | "coastView3"
+  | "forestPath1"
+  | "forestPath2"
+  | "forestPath3"
+  | "forestPath4"
+  | "gardenView1"
+  | "gardenView2"
+  | "gardenView3"
+  | "gardenView4"
+  | "mountainLake1"
+  | "mountainLake2"
+  | "mountainLake3"
+  | "mountainLake4"
+  | "seasonalView1"
+  | "seasonalView2"
+  | "seasonalView3"
+  | "seasonalView4"
+  | "solitudeView1"
+  | "solitudeView2"
+  | "solitudeView3"
+  | "solitudeView4"
+  | "solitudeView5"
+  | "waterView1"
+  | "waterView2";
 
 export type BackgroundScreenKey =
   | "welcome"
@@ -98,6 +124,35 @@ export const BACKGROUND_IMAGES: Record<BackgroundImageId, BackgroundEntry> = {
   oceanSunsetRocks: { label: "Ocean Sunset", category: "coast", source: require("../../assets/backgrounds/ocean-sunset-rocks.jpg") },
   figureSunset: { label: "Alone at Sunset", category: "solitude", source: require("../../assets/backgrounds/figure-ocean-sunset.jpg") },
   starlitLake: { label: "Starlit Mountain Lake", category: "mountains", source: require("../../assets/backgrounds/starlit-mountain-lake.jpg") },
+
+  // Added July 2026 - user-supplied batch to round out the thinner
+  // categories (water and coast only had 3 and 6 respectively before this).
+  coastView1: { label: "Coast View 1", category: "coast", source: require("../../assets/backgrounds/coast-1.jpg") },
+  coastView2: { label: "Coast View 2", category: "coast", source: require("../../assets/backgrounds/coast-2.jpg") },
+  coastView3: { label: "Coast View 3", category: "coast", source: require("../../assets/backgrounds/coast-3.jpg") },
+  forestPath1: { label: "Forest Path 1", category: "forest", source: require("../../assets/backgrounds/forest-1.jpg") },
+  forestPath2: { label: "Forest Path 2", category: "forest", source: require("../../assets/backgrounds/forest-2.jpg") },
+  forestPath3: { label: "Forest Path 3", category: "forest", source: require("../../assets/backgrounds/forest-3.jpg") },
+  forestPath4: { label: "Forest Path 4", category: "forest", source: require("../../assets/backgrounds/forest-4.jpg") },
+  gardenView1: { label: "Garden View 1", category: "garden", source: require("../../assets/backgrounds/garden-1.jpg") },
+  gardenView2: { label: "Garden View 2", category: "garden", source: require("../../assets/backgrounds/garden-2.jpg") },
+  gardenView3: { label: "Garden View 3", category: "garden", source: require("../../assets/backgrounds/garden-3.jpg") },
+  gardenView4: { label: "Garden View 4", category: "garden", source: require("../../assets/backgrounds/garden-4.jpg") },
+  mountainLake1: { label: "Mountain Lake 1", category: "mountains", source: require("../../assets/backgrounds/mountain-lake-1.jpg") },
+  mountainLake2: { label: "Mountain Lake 2", category: "mountains", source: require("../../assets/backgrounds/mountain-lake-2.jpg") },
+  mountainLake3: { label: "Mountain Lake 3", category: "mountains", source: require("../../assets/backgrounds/mountain-lake-3.jpg") },
+  mountainLake4: { label: "Mountain Lake 4", category: "mountains", source: require("../../assets/backgrounds/mountain-lake-4.jpg") },
+  seasonalView1: { label: "Seasonal View 1", category: "seasonal", source: require("../../assets/backgrounds/seasonal-photo-1.jpg") },
+  seasonalView2: { label: "Seasonal View 2", category: "seasonal", source: require("../../assets/backgrounds/seasonal-photo-2.jpg") },
+  seasonalView3: { label: "Seasonal View 3", category: "seasonal", source: require("../../assets/backgrounds/seasonal-photo-3.jpg") },
+  seasonalView4: { label: "Seasonal View 4", category: "seasonal", source: require("../../assets/backgrounds/seasonal-photo-4.jpg") },
+  solitudeView1: { label: "Quiet Moment 1", category: "solitude", source: require("../../assets/backgrounds/solitude-1.jpg") },
+  solitudeView2: { label: "Quiet Moment 2", category: "solitude", source: require("../../assets/backgrounds/solitude-2.jpg") },
+  solitudeView3: { label: "Quiet Moment 3", category: "solitude", source: require("../../assets/backgrounds/solitude-3.jpg") },
+  solitudeView4: { label: "Quiet Moment 4", category: "solitude", source: require("../../assets/backgrounds/solitude-4.jpg") },
+  solitudeView5: { label: "Quiet Moment 5", category: "solitude", source: require("../../assets/backgrounds/solitude-5.jpg") },
+  waterView1: { label: "Water View 1", category: "water", source: require("../../assets/backgrounds/water-1.jpg") },
+  waterView2: { label: "Water View 2", category: "water", source: require("../../assets/backgrounds/water-2.jpg") },
 };
 
 export const CATEGORY_LABELS: Record<BackgroundCategory, string> = {

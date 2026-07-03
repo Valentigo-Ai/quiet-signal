@@ -43,6 +43,19 @@ export function BackgroundsScreen() {
   const navigation = useNavigation<any>();
   const { prefs, setBackground } = useBackgroundPrefs();
   const [openKey, setOpenKey] = useState<BackgroundScreenKey | null>(null);
+  // Selecting a photo already saves instantly (see BackgroundPrefsContext -
+  // AsyncStorage.setItem happens on every tap, no separate save step exists
+  // or is needed). What was missing was any visible sign that the tap did
+  // something: this briefly shows "Saved" and collapses the picker back to
+  // the updated thumbnail so it's obvious the change actually applied.
+  const [justSavedKey, setJustSavedKey] = useState<BackgroundScreenKey | null>(null);
+
+  const choosePhoto = (key: BackgroundScreenKey, id: BackgroundImageId) => {
+    setBackground(key, id);
+    setOpenKey(null);
+    setJustSavedKey(key);
+    setTimeout(() => setJustSavedKey((cur) => (cur === key ? null : cur)), 1500);
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -70,6 +83,11 @@ export function BackgroundsScreen() {
                   <Text style={{ color: theme.textMuted, fontSize: fontSizes.label }}>
                     {BACKGROUND_IMAGES[currentId].label}
                   </Text>
+                  {justSavedKey === key && (
+                    <Text style={{ color: theme.success, fontSize: fontSizes.label, fontWeight: "600", marginTop: 2 }}>
+                      Saved ✓
+                    </Text>
+                  )}
                 </View>
                 <Pressable
                   onPress={() => (isPro ? setOpenKey(isOpen ? null : key) : navigation.navigate("Upgrade"))}
@@ -81,14 +99,22 @@ export function BackgroundsScreen() {
 
               {isOpen && isPro && (
                 <View style={{ marginTop: spacing.md }}>
+                  <Text style={{ color: theme.textMuted, fontSize: fontSizes.label, marginBottom: spacing.sm }}>
+                    {Object.keys(BACKGROUND_IMAGES).length} photos to choose from
+                  </Text>
                   {IMAGES_BY_CATEGORY.map(({ category, ids }) => (
                     <View key={category} style={{ marginBottom: spacing.md }}>
                       <Text style={[styles.categoryLabel, { color: theme.textMuted }]}>
-                        {CATEGORY_LABELS[category]}
+                        {CATEGORY_LABELS[category]} ({ids.length})
                       </Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      {/* A wrapping grid rather than a horizontal scroll row per
+                          category - nesting a sideways-scrolling strip inside
+                          the page's own vertical scroll made it easy to miss
+                          every category after the first one. Everything here
+                          is now reachable just by scrolling the page down. */}
+                      <View style={styles.optionGrid}>
                         {ids.map((id) => (
-                          <Pressable key={id} onPress={() => setBackground(key, id)} style={{ marginRight: spacing.sm }}>
+                          <Pressable key={id} onPress={() => choosePhoto(key, id)}>
                             <Image
                               source={BACKGROUND_IMAGES[id].source}
                               style={[
@@ -98,7 +124,7 @@ export function BackgroundsScreen() {
                             />
                           </Pressable>
                         ))}
-                      </ScrollView>
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -119,5 +145,6 @@ const styles = StyleSheet.create({
   currentThumb: { width: 56, height: 56, borderRadius: radii.sm },
   changeButton: { paddingHorizontal: spacing.md, borderRadius: radii.sm, justifyContent: "center" },
   categoryLabel: { fontSize: 12, fontWeight: "700", letterSpacing: 0.5, marginBottom: spacing.xs },
-  optionThumb: { width: 72, height: 96, borderRadius: radii.sm, borderWidth: 3 },
+  optionGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  optionThumb: { width: 90, height: 120, borderRadius: radii.sm, borderWidth: 3 },
 });

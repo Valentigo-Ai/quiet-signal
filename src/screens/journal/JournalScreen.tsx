@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TextInput, StyleSheet, FlatList, Alert } from "react-native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { ScreenBackground } from "@/components/ScreenBackground";
@@ -16,6 +17,7 @@ type Entry = { id: string; date: string; entry_text: string; flagged_crisis: boo
 export function JournalScreen() {
   const { theme } = useAppTheme();
   const { getSource } = useBackgroundPrefs();
+  const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
   const [text, setText] = useState("");
   const [entries, setEntries] = useState<Entry[]>([]);
   const [saving, setSaving] = useState(false);
@@ -76,6 +78,7 @@ export function JournalScreen() {
 
       <FlatList
         style={{ marginTop: spacing.lg }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + spacing.lg }}
         data={entries}
         keyExtractor={(e) => e.id}
         renderItem={({ item }) => (

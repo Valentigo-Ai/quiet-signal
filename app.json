@@ -41,6 +41,12 @@
         "projectId": "8ed99a7a-8db8-4d54-9135-be7079dad996"
       }
     },
-    "owner": "valentigo"
+    "owner": "valentigo",
+    "ios": {
+      "bundleIdentifier": "com.quietsignal.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
   }
 }

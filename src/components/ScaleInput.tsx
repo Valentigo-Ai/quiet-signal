@@ -1,14 +1,17 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useAppTheme } from "@/context/ThemeContext";
-import { spacing, fontSizes, fonts, imageTextShadow } from "@/lib/theme";
+import { spacing, fontSizes, fonts } from "@/lib/theme";
+import { TextOnPhoto } from "./TextOnPhoto";
 
 // 0-4 tap-scale, plain-language labels rather than raw numbers (Section 4.2).
-// Large touch targets throughout for accessibility.
+// Large touch targets throughout for accessibility. value is nullable so the
+// scale can start with nothing chosen each day (no pill pre-highlighted)
+// rather than defaulting to whichever index the screen happened to pick.
 
 type Props = {
   label: string;
-  value: number; // 0-4
+  value: number | null; // 0-4, or null if nothing chosen yet
   onChange: (value: number) => void;
   scaleLabels: [string, string, string, string, string];
 };
@@ -18,7 +21,9 @@ export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: theme.text }, imageTextShadow]}>{label}</Text>
+      <TextOnPhoto style={{ marginBottom: spacing.sm }}>
+        <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
+      </TextOnPhoto>
       <View style={styles.row}>
         {scaleLabels.map((text, i) => {
           const selected = value === i;
@@ -56,7 +61,7 @@ export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
 
 const styles = StyleSheet.create({
   container: { marginBottom: spacing.lg },
-  label: { fontSize: fontSizes.title, fontFamily: fonts.heading, marginBottom: spacing.sm },
+  label: { fontSize: fontSizes.title, fontFamily: fonts.heading },
   row: { flexDirection: "row", gap: spacing.xs },
   pill: {
     flex: 1,
