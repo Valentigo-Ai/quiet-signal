@@ -75,7 +75,9 @@ export function CheckInScreen() {
         return;
       }
 
-      // Section 4.2: immediate option to share this or keep it just for today.
+      // Section 4.2: immediate option to share this or keep it just for
+      // today. The subtitle just above the button (below) tells the user
+      // this is coming, so landing on the share screen isn't a surprise.
       navigation.navigate("ShareFlow", { checkinId: checkin.id });
     } finally {
       setSaving(false);
@@ -105,6 +107,9 @@ export function CheckInScreen() {
           ]}
         />
 
+        <Text style={[styles.helperText, { color: theme.textMuted }, imageTextShadow]}>
+          After logging, you'll get the chance to let someone know how you're doing - or keep it just for you.
+        </Text>
         <PrimaryButton label="Log today" onPress={handleLog} loading={saving} />
       </ScrollView>
     </ScreenBackground>
@@ -115,6 +120,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   title: { fontSize: fontSizes.largeTitle, fontFamily: fonts.heading, marginBottom: spacing.lg },
   label: { fontSize: fontSizes.label, fontWeight: "600", marginBottom: spacing.sm },
+  helperText: { fontSize: fontSizes.label, marginBottom: spacing.sm, textAlign: "center" },
   noteInput: {
     borderWidth: 1,
     borderRadius: 12,
