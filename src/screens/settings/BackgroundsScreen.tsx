@@ -10,6 +10,7 @@ import {
   BACKGROUND_SCREEN_LABELS,
   CATEGORY_LABELS,
   CATEGORY_ORDER,
+  BackgroundCategory,
   BackgroundImageId,
   BackgroundScreenKey,
 } from "@/constants/backgroundLibrary";
@@ -43,6 +44,18 @@ export function BackgroundsScreen() {
   const navigation = useNavigation<any>();
   const { prefs, setBackground } = useBackgroundPrefs();
   const [openKey, setOpenKey] = useState<BackgroundScreenKey | null>(null);
+  // Which category's photo grid is expanded within the open screen-key
+  // section. Previously every category rendered all its full-resolution
+  // photos at once as soon as a screen's picker opened - 63 photos decoding
+  // simultaneously, which is enough to blow past Android's Fresco image
+  // pipeline's concurrent-decode memory ceiling. When that happens, Image
+  // just renders blank (no error, no crash) while its layout box still
+  // reserves space - that's exactly the "empty grid slots" bug from device
+  // screenshots, worse for categories later in CATEGORY_ORDER since memory
+  // pressure compounds as more images ahead of them get decoded first. Now
+  // only one category's photos (5-14 of them, not 63) are ever mounted at a
+  // time.
+  const [openCategory, setOpenCategory] = useState<BackgroundCategory | null>(null);
   // Selecting a photo already saves instantly (see BackgroundPrefsContext -
   // AsyncStorage.setItem happens on every tap, no separate save step exists
   // or is needed). What was missing was any visible sign that the tap did
@@ -53,8 +66,14 @@ export function BackgroundsScreen() {
   const choosePhoto = (key: BackgroundScreenKey, id: BackgroundImageId) => {
     setBackground(key, id);
     setOpenKey(null);
+    setOpenCategory(null);
     setJustSavedKey(key);
     setTimeout(() => setJustSavedKey((cur) => (cur === key ? null : cur)), 1500);
+  };
+
+  const toggleKey = (key: BackgroundScreenKey) => {
+    setOpenKey((cur) => (cur === key ? null : key));
+    setOpenCategory(null); // start collapsed - don't carry an expanded category into a different screen's picker
   };
 
   return (
@@ -90,7 +109,7 @@ export function BackgroundsScreen() {
                   )}
                 </View>
                 <Pressable
-                  onPress={() => (isPro ? setOpenKey(isOpen ? null : key) : navigation.navigate("Upgrade"))}
+                  onPress={() => (isPro ? toggleKey(key) : navigation.navigate("Upgrade"))}
                   style={[styles.changeButton, { backgroundColor: theme.primarySoft, minHeight: theme.minTouchTarget }]}
                 >
                   <Text style={{ color: theme.text, fontWeight: "600" }}>{isPro ? (isOpen ? "Close" : "Change") : "Pro"}</Text>
@@ -102,31 +121,45 @@ export function BackgroundsScreen() {
                   <Text style={{ color: theme.textMuted, fontSize: fontSizes.label, marginBottom: spacing.sm }}>
                     {Object.keys(BACKGROUND_IMAGES).length} photos to choose from
                   </Text>
-                  {IMAGES_BY_CATEGORY.map(({ category, ids }) => (
-                    <View key={category} style={{ marginBottom: spacing.md }}>
-                      <Text style={[styles.categoryLabel, { color: theme.textMuted }]}>
-                        {CATEGORY_LABELS[category]} ({ids.length})
-                      </Text>
-                      {/* A wrapping grid rather than a horizontal scroll row per
-                          category - nesting a sideways-scrolling strip inside
-                          the page's own vertical scroll made it easy to miss
-                          every category after the first one. Everything here
-                          is now reachable just by scrolling the page down. */}
-                      <View style={styles.optionGrid}>
-                        {ids.map((id) => (
-                          <Pressable key={id} onPress={() => choosePhoto(key, id)}>
-                            <Image
-                              source={BACKGROUND_IMAGES[id].source}
-                              style={[
-                                styles.optionThumb,
-                                { borderColor: id === currentId ? theme.primary : "transparent" },
-                              ]}
-                            />
-                          </Pressable>
-                        ))}
+                  {IMAGES_BY_CATEGORY.map(({ category, ids }) => {
+                    const isCategoryOpen = openCategory === category;
+                    return (
+                      <View key={category} style={{ marginBottom: spacing.sm }}>
+                        <Pressable
+                          onPress={() => setOpenCategory((cur) => (cur === category ? null : category))}
+                          style={[styles.categoryRow, { minHeight: theme.minTouchTarget }]}
+                        >
+                          <Text style={[styles.categoryLabel, { color: theme.textMuted }]}>
+                            {CATEGORY_LABELS[category]} ({ids.length})
+                          </Text>
+                          <Text style={{ color: theme.primary, fontWeight: "600" }}>
+                            {isCategoryOpen ? "Hide" : "Show"}
+                          </Text>
+                        </Pressable>
+                        {/* Only the expanded category's photos are mounted - see
+                            the note on openCategory above for why. A wrapping
+                            grid rather than a horizontal scroll row, too:
+                            nesting a sideways-scrolling strip inside the
+                            page's own vertical scroll made it easy to miss
+                            photos after the first row. */}
+                        {isCategoryOpen && (
+                          <View style={styles.optionGrid}>
+                            {ids.map((id) => (
+                              <Pressable key={id} onPress={() => choosePhoto(key, id)}>
+                                <Image
+                                  source={BACKGROUND_IMAGES[id].source}
+                                  style={[
+                                    styles.optionThumb,
+                                    { borderColor: id === currentId ? theme.primary : "transparent" },
+                                  ]}
+                                />
+                              </Pressable>
+                            ))}
+                          </View>
+                        )}
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
             </View>
@@ -144,7 +177,13 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: "row", alignItems: "center" },
   currentThumb: { width: 56, height: 56, borderRadius: radii.sm },
   changeButton: { paddingHorizontal: spacing.md, borderRadius: radii.sm, justifyContent: "center" },
-  categoryLabel: { fontSize: 12, fontWeight: "700", letterSpacing: 0.5, marginBottom: spacing.xs },
-  optionGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  categoryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: spacing.xs,
+  },
+  categoryLabel: { fontSize: 12, fontWeight: "700", letterSpacing: 0.5 },
+  optionGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.xs },
   optionThumb: { width: 90, height: 120, borderRadius: radii.sm, borderWidth: 3 },
 });
