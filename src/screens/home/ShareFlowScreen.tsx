@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, StyleSheet, FlatList, Pressable, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, StyleSheet, FlatList, Pressable, Alert, ActivityIndicator, Linking } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -46,7 +46,33 @@ export function ShareFlowScreen() {
     }
     setSending(true);
     try {
-      await shareCheckin({ checkinId, recipientId: selectedRecipient.id, messageText: message });
+      const result = await shareCheckin({
+        checkinId,
+        recipientId: selectedRecipient.id,
+        messageText: message,
+      });
+
+      // If this recipient is reached by phone number (not push), the
+      // share-checkin function hands back a native `sms:` deep link rather
+      // than sending anything itself - there's no SMS vendor in the loop,
+      // so nothing is billed to the app. Opening it here hands off to the
+      // person's own Messages app, pre-filled, sent on their own plan/credit,
+      // same as if they'd typed it themselves. Previously this link was
+      // generated but never opened, so phone-number recipients never
+      // actually received anything - this is the fix for that.
+      const delivery = result?.delivery as { sms_link?: string } | undefined;
+      if (delivery?.sms_link) {
+        const canOpen = await Linking.canOpenURL(delivery.sms_link);
+        if (canOpen) {
+          await Linking.openURL(delivery.sms_link);
+        } else {
+          Alert.alert(
+            "Couldn't open Messages",
+            "We saved this, but couldn't open your messaging app automatically. You can share it yourself from Settings > Shared with."
+          );
+        }
+      }
+
       navigation.navigate("Main", { screen: "CheckIn" });
     } catch (e: any) {
       Alert.alert("Couldn't send", e.message ?? String(e));
@@ -57,60 +83,76 @@ export function ShareFlowScreen() {
 
   const keepPrivate = () => navigation.navigate("Main", { screen: "CheckIn" });
 
+  const goAddRecipient = () => {
+    navigation.navigate("Main", { screen: "Settings", params: { screen: "Recipients" } });
+  };
+
   return (
     <ScreenBackground source={getSource("share")} edges={["bottom", "left", "right"]}>
       <View style={styles.container}>
-      <Text style={[styles.title, imageTextShadow, { color: theme.text }]}>Share today's check-in?</Text>
+        <Text style={[styles.title, imageTextShadow, { color: theme.text }]}>Share today's check-in?</Text>
 
-      {loadingMessage ? (
-        <ActivityIndicator style={{ marginVertical: spacing.lg }} color={theme.primary} />
-      ) : (
-        <>
-          <Text style={[styles.label, { color: theme.text }]}>Message preview</Text>
-          <TextInput
-            value={message}
-            onChangeText={setMessage}
-            multiline
-            style={[styles.messageBox, { color: theme.text, borderColor: theme.border }]}
-          />
-
-          <Text style={[styles.label, { color: theme.text }]}>Share with</Text>
-          {recipients.length === 0 ? (
-            <Text style={{ color: theme.textMuted, marginBottom: spacing.md }}>
-              You haven't added anyone yet - add someone from Settings, or keep this just for you.
-            </Text>
-          ) : (
-            <FlatList
-              data={recipients}
-              keyExtractor={(r) => r.id}
-              horizontal
-              renderItem={({ item }) => {
-                const isSelected = selectedRecipient?.id === item.id;
-                return (
-                  <Pressable
-                    onPress={() => setSelectedRecipient(item)}
-                    style={[
-                      styles.recipientChip,
-                      {
-                        backgroundColor: isSelected ? theme.primary : theme.primarySoft,
-                        minHeight: theme.minTouchTarget,
-                      },
-                    ]}
-                  >
-                    <Text style={{ color: isSelected ? "#FFF" : theme.text }}>{item.recipient_label}</Text>
-                  </Pressable>
-                );
-              }}
+        {loadingMessage ? (
+          <ActivityIndicator style={{ marginVertical: spacing.lg }} color={theme.primary} />
+        ) : (
+          <>
+            <Text style={[styles.label, { color: theme.text }]}>Message preview</Text>
+            <TextInput
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              style={[styles.messageBox, { color: theme.text, borderColor: theme.border }]}
             />
-          )}
-        </>
-      )}
 
-      <View style={{ flex: 1 }} />
-      <PrimaryButton label="Send" onPress={handleShare} loading={sending} disabled={loadingMessage} />
-      <Pressable onPress={keepPrivate} style={{ marginTop: spacing.md, alignItems: "center" }}>
-        <Text style={{ color: theme.textMuted }}>Just for me today</Text>
-      </Pressable>
+            <Text style={[styles.label, { color: theme.text }]}>Share with</Text>
+            {recipients.length === 0 ? (
+              <View style={{ marginBottom: spacing.md }}>
+                <Text style={{ color: theme.textMuted, marginBottom: spacing.sm }}>
+                  You haven't added anyone yet - add someone to let them know how you're doing, or keep this
+                  just for you.
+                </Text>
+                <Pressable
+                  onPress={goAddRecipient}
+                  style={[
+                    styles.addRecipientButton,
+                    { borderColor: theme.primary, minHeight: theme.minTouchTarget },
+                  ]}
+                >
+                  <Text style={{ color: theme.primary, fontWeight: "600" }}>+ Add someone to share with</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <FlatList
+                data={recipients}
+                keyExtractor={(r) => r.id}
+                horizontal
+                renderItem={({ item }) => {
+                  const isSelected = selectedRecipient?.id === item.id;
+                  return (
+                    <Pressable
+                      onPress={() => setSelectedRecipient(item)}
+                      style={[
+                        styles.recipientChip,
+                        {
+                          backgroundColor: isSelected ? theme.primary : theme.primarySoft,
+                          minHeight: theme.minTouchTarget,
+                        },
+                      ]}
+                    >
+                      <Text style={{ color: isSelected ? "#FFF" : theme.text }}>{item.recipient_label}</Text>
+                    </Pressable>
+                  );
+                }}
+              />
+            )}
+          </>
+        )}
+
+        <View style={{ flex: 1 }} />
+        <PrimaryButton label="Let someone know" onPress={handleShare} loading={sending} disabled={loadingMessage} />
+        <Pressable onPress={keepPrivate} style={{ marginTop: spacing.md, alignItems: "center" }}>
+          <Text style={{ color: theme.textMuted }}>Just for me today</Text>
+        </Pressable>
       </View>
     </ScreenBackground>
   );
@@ -134,5 +176,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     justifyContent: "center",
     marginRight: spacing.sm,
+  },
+  addRecipientButton: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

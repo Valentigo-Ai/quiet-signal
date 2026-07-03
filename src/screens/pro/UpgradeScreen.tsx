@@ -19,7 +19,7 @@ const BENEFITS = [
     body: "Free keeps you to one trusted contact. Pro lets you add your whole circle - partner, family, care team.",
   },
   {
-    title: "Extended history & appointment-ready export",
+    title: "Extended history & flexible export",
     body: "See 90-day trends (not just 7/30) and export a clean summary to bring to a GP or therapist appointment.",
   },
   {

@@ -72,14 +72,16 @@ export const raisedShadow = {
 };
 
 // For text sitting directly over a background photo (see ScreenBackground).
-// Since the photo now shows at full clarity everywhere except a small
-// gradient behind the header, this shadow is the primary legibility
-// technique for anything outside that zone - a "halo" around the text is
-// one of WCAG's own recognised alternatives to a background scrim (W3C
-// 1.4.3, technique G18), which is why it's a bit stronger than a typical
-// decorative shadow.
+// ScreenBackground now also applies a soft full-image gradient scrim, so
+// this shadow is a second layer of insurance rather than the only thing
+// standing between text and a busy photo. Strengthened slightly (opacity
+// and radius both up) after real-device screenshots showed the previous
+// values weren't reliably enough on high-detail images - a "halo" around
+// the text is one of WCAG's own recognised alternatives to a background
+// scrim (W3C 1.4.3, technique G18), which is why it's stronger than a
+// typical decorative shadow.
 export const imageTextShadow = {
-  textShadowColor: "rgba(0,0,0,0.5)",
+  textShadowColor: "rgba(0,0,0,0.65)",
   textShadowOffset: { width: 0, height: 1 },
-  textShadowRadius: 8,
+  textShadowRadius: 10,
 };

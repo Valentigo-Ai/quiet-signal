@@ -2,6 +2,7 @@ import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
 import { useAppTheme } from "@/context/ThemeContext";
 
@@ -29,6 +30,18 @@ const OnboardingStack = createNativeStackNavigator();
 const MainTabs = createBottomTabNavigator();
 const SettingsStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
+
+// Maps each main tab route to an Ionicons name (outline when inactive, filled
+// when focused). tabBarIcon was never set here before, which is why the tab
+// bar showed React Navigation's built-in "missing icon" placeholder box on
+// every tab instead of a real icon.
+const TAB_ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
+  CheckIn: { active: "today", inactive: "today-outline" },
+  History: { active: "stats-chart", inactive: "stats-chart-outline" },
+  Journal: { active: "book", inactive: "book-outline" },
+  CrisisResources: { active: "heart", inactive: "heart-outline" },
+  Settings: { active: "settings", inactive: "settings-outline" },
+};
 
 function OnboardingNavigator({ initialRouteName }: { initialRouteName?: string }) {
   return (
@@ -58,10 +71,18 @@ function SettingsNavigator() {
 
 function MainNavigator() {
   const { theme } = useAppTheme();
+
   return (
     <MainTabs.Navigator
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textMuted,
+        tabBarIcon: ({ focused, color, size }) => {
+          const icons = TAB_ICONS[route.name];
+          if (!icons) return null;
+          return <Ionicons name={focused ? icons.active : icons.inactive} size={size} color={color} />;
+        },
         // Floating, semi-opaque tab bar (React Navigation's own recommended
         // pattern for a full-bleed image behind the tab bar: absolute
         // position + a translucent tabBarStyle background, rather than a
@@ -75,7 +96,7 @@ function MainNavigator() {
           borderTopWidth: 0,
           elevation: 0,
         },
-      }}
+      })}
     >
       <MainTabs.Screen name="CheckIn" component={CheckInScreen} options={{ title: "Today" }} />
       <MainTabs.Screen name="History" component={HistoryScreen} options={{ title: "History" }} />
