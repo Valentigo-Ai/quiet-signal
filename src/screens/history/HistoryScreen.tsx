@@ -116,6 +116,44 @@ export function HistoryScreen() {
     setRange(r);
   };
 
+  // Builds the actual text that lands in whatever app the person picks from
+  // the OS share sheet (Messages, WhatsApp, etc). This used to be a raw CSV
+  // dump (Date,Pain,Anxiety,Energy,Note) pasted straight into the message
+  // body - fine as a file, unreadable as a text: someone opening WhatsApp
+  // and seeing a header row and comma-separated numbers has no idea what
+  // they're looking at. This reuses the same plain-language trend sentence
+  // already shown on-screen so the export says the same thing a human
+  // would say out loud, not what a spreadsheet would.
+  const buildShareSummary = () => {
+    const first = checkins[0];
+    const last = checkins[checkins.length - 1];
+    const count = checkins.length;
+    const rangeLabel = count === 1 ? `on ${first.date}` : `between ${first.date} and ${last.date}`;
+
+    const lines: string[] = [];
+    lines.push(`Quiet Signal check-in summary - last ${range} days`);
+    lines.push(`${count} check-in${count === 1 ? "" : "s"} logged ${rangeLabel}.`);
+    lines.push("");
+
+    if (trendSummary) {
+      lines.push(trendSummary);
+    } else {
+      lines.push(
+        `Only ${count} check-in${count === 1 ? "" : "s"} in this period - not quite enough yet to show a trend.`
+      );
+    }
+
+    lines.push("");
+    lines.push(
+      `Most recent, ${last.date}: pain ${last.pain_score} out of 4, anxiety ${last.anxiety_score} out of 4, energy ${last.energy_score} out of 4.`
+    );
+
+    lines.push("");
+    lines.push("Sent from Quiet Signal - a personal check-in, not a diagnosis.");
+
+    return lines.join("\n");
+  };
+
   const handleExport = async () => {
     if (!isPro) {
       navigation.navigate("Upgrade");
@@ -125,15 +163,10 @@ export function HistoryScreen() {
       Alert.alert("Nothing to export yet", "Log a few check-ins first.");
       return;
     }
-    const header = "Date,Pain,Anxiety,Energy,Note";
-    const rows = checkins.map(
-      (c) => `${c.date},${c.pain_score},${c.anxiety_score},${c.energy_score},"${(c.note ?? "").replace(/"/g, "'")}"`
-    );
-    const csv = [header, ...rows].join("\n");
     try {
       await Share.share({
-        title: "Quiet Signal history report",
-        message: `Quiet Signal check-in history (${range} days)\n\n${csv}`,
+        title: "Quiet Signal check-in summary",
+        message: buildShareSummary(),
       });
     } catch {
       // user cancelled the share sheet - nothing to do
@@ -170,7 +203,7 @@ export function HistoryScreen() {
 
       <Pressable onPress={handleExport} style={[styles.exportRow, { borderColor: theme.border, backgroundColor: theme.surface + "D9" }]}>
         <Text style={{ color: theme.primary, fontWeight: "600" }}>
-          {isPro ? "Export report" : "Export report (Pro)"}
+          {isPro ? "Share a summary" : "Share a summary (Pro)"}
         </Text>
       </Pressable>
 
