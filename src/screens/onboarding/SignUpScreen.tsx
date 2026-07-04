@@ -6,9 +6,10 @@ import { useAppTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { ScreenBackground } from "@/components/ScreenBackground";
+import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
-import { spacing, fontSizes, imageTextShadow, fonts } from "@/lib/theme";
+import { spacing, fontSizes, fonts } from "@/lib/theme";
 import { CONSENT_VERSION } from "@/constants/legalCopy";
 
 export function SignUpScreen() {
@@ -96,11 +97,15 @@ export function SignUpScreen() {
       </View>
       <PrimaryButton label="Create account" onPress={handleSignUp} loading={loading} />
       <Pressable onPress={() => navigation.navigate("Login")} style={{ marginTop: spacing.md, alignItems: "center" }}>
-        <Text style={[{ color: theme.textMuted }, imageTextShadow]}>Already have an account? Log in</Text>
+        <TextOnPhoto style={{ alignSelf: "center" }}>
+          <Text style={{ color: theme.textMuted }}>Already have an account? Log in</Text>
+        </TextOnPhoto>
       </Pressable>
-      <Text style={[styles.note, { color: theme.textMuted }, imageTextShadow]}>
-        Google sign-in is available from the Login screen as an alternative.
-      </Text>
+      <TextOnPhoto style={{ alignSelf: "center", marginTop: spacing.lg }}>
+        <Text style={[styles.note, { color: theme.textMuted }]}>
+          Google sign-in is available from the Login screen as an alternative.
+        </Text>
+      </TextOnPhoto>
       </View>
     </ScreenBackground>
   );

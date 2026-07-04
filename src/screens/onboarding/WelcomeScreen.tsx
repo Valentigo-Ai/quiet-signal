@@ -4,6 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenBackground } from "@/components/ScreenBackground";
+import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { spacing, fontSizes, radii, raisedShadow, imageTextShadow, fonts } from "@/lib/theme";
 
@@ -66,7 +67,9 @@ export function WelcomeScreen() {
           accessibilityRole="button"
           style={{ marginTop: spacing.md, alignItems: "center", minHeight: theme.minTouchTarget, justifyContent: "center" }}
         >
-          <Text style={[{ color: theme.text }, imageTextShadow]}>Already have an account? Log in</Text>
+          <TextOnPhoto style={{ alignSelf: "center" }}>
+            <Text style={{ color: theme.text }}>Already have an account? Log in</Text>
+          </TextOnPhoto>
         </Pressable>
       </View>
     </ScreenBackground>

@@ -4,9 +4,10 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { ScreenBackground } from "@/components/ScreenBackground";
+import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
-import { spacing, fontSizes, imageTextShadow, fonts } from "@/lib/theme";
+import { spacing, fontSizes, fonts } from "@/lib/theme";
 
 type Entry = { id: string; date: string; entry_text: string; flagged_crisis: boolean };
 
@@ -61,10 +62,12 @@ export function JournalScreen() {
   return (
     <ScreenBackground source={getSource("journal")}>
       <View style={styles.container}>
-      <Text style={[styles.title, { color: theme.text }, imageTextShadow]}>Journal</Text>
-      <Text style={[styles.subtitle, { color: theme.textMuted }, imageTextShadow]}>
-        Private by default - just for you, unless you choose otherwise.
-      </Text>
+      <TextOnPhoto style={styles.titleCard}>
+        <Text style={[styles.title, { color: theme.text }]}>Journal</Text>
+        <Text style={[styles.subtitle, { color: theme.textMuted }]}>
+          Private by default - just for you, unless you choose otherwise.
+        </Text>
+      </TextOnPhoto>
 
       <TextInput
         placeholder="Write whatever's on your mind..."
@@ -95,8 +98,9 @@ export function JournalScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg },
+  titleCard: { alignSelf: "stretch", paddingHorizontal: spacing.md, paddingVertical: spacing.md, marginBottom: spacing.md },
   title: { fontSize: fontSizes.title, fontFamily: fonts.heading },
-  subtitle: { fontSize: fontSizes.label, marginBottom: spacing.md },
+  subtitle: { fontSize: fontSizes.label, marginTop: 2 },
   input: {
     borderWidth: 1,
     borderRadius: 12,

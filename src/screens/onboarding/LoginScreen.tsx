@@ -6,8 +6,9 @@ import { useAppTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { ScreenBackground } from "@/components/ScreenBackground";
+import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { spacing, fontSizes, imageTextShadow, fonts } from "@/lib/theme";
+import { spacing, fontSizes, fonts } from "@/lib/theme";
 
 // Email/password login, plus Google sign-in (Section 4.1) as an easier
 // alternative. Google needs a one-time OAuth client set up in the Supabase
@@ -92,7 +93,9 @@ export function LoginScreen() {
 
       <View style={styles.dividerRow}>
         <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-        <Text style={[styles.dividerLabel, { color: theme.textMuted }, imageTextShadow]}>or</Text>
+        <TextOnPhoto style={styles.dividerLabelPill}>
+          <Text style={{ color: theme.textMuted, fontSize: fontSizes.label }}>or</Text>
+        </TextOnPhoto>
         <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
       </View>
 
@@ -113,7 +116,9 @@ export function LoginScreen() {
       </Pressable>
 
       <Pressable onPress={() => navigation.navigate("SignUp")} style={{ marginTop: spacing.md, alignItems: "center" }}>
-        <Text style={[{ color: theme.textMuted }, imageTextShadow]}>New here? Create an account</Text>
+        <TextOnPhoto style={{ alignSelf: "center" }}>
+          <Text style={{ color: theme.textMuted }}>New here? Create an account</Text>
+        </TextOnPhoto>
       </Pressable>
       </View>
     </ScreenBackground>
@@ -127,7 +132,7 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md, fontSize: fontSizes.body },
   dividerRow: { flexDirection: "row", alignItems: "center", marginVertical: spacing.lg },
   dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
-  dividerLabel: { marginHorizontal: spacing.sm, fontSize: fontSizes.label },
+  dividerLabelPill: { marginHorizontal: spacing.sm, alignSelf: "center" },
   googleButton: {
     flexDirection: "row",
     alignItems: "center",

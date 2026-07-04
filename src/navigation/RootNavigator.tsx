@@ -106,7 +106,17 @@ function MainNavigator() {
         component={CrisisResourcesScreen}
         options={{ title: "Support" }}
       />
-      <MainTabs.Screen name="Settings" component={SettingsNavigator} options={{ title: "Settings" }} />
+      <MainTabs.Screen
+        name="Settings"
+        component={SettingsNavigator}
+        // Bug fix: nested stacks keep their last-visited screen by default,
+        // so once someone opened e.g. "Shared with" and switched tabs, the
+        // Settings tab would reopen straight into that screen forever - no
+        // way back to the actual Settings menu except a full app restart.
+        // unmountOnBlur resets this stack to SettingsHome every time the
+        // tab loses focus, so tapping "Settings" always shows the menu.
+        options={{ title: "Settings", unmountOnBlur: true }}
+      />
     </MainTabs.Navigator>
   );
 }

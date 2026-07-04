@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -7,6 +7,7 @@ import { usePro, ProPlanId } from "@/context/ProContext";
 import { useCrisisCountry } from "@/context/CrisisCountryContext";
 import { getProPlans } from "@/constants/proPricing";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { ConfettiBurst } from "@/components/ConfettiBurst";
 import { spacing, fontSizes, radii, raisedShadow, fonts } from "@/lib/theme";
 
 // Placeholder paywall UI (Section: Pro tier, July 2026). Crisis resources,
@@ -35,17 +36,26 @@ export function UpgradeScreen() {
   const navigation = useNavigation<any>();
   const [busy, setBusy] = useState(false);
   const [plan, setPlan] = useState<ProPlanId>("yearly");
+  const [showWelcome, setShowWelcome] = useState(false);
   const plans = getProPlans(countryInfo.code);
 
   const handleSubscribe = async () => {
     setBusy(true);
     try {
       await purchasePro(plan);
-      Alert.alert("You're on Pro", "Thanks for supporting Quiet Signal.");
-      navigation.goBack();
+      // Checkout-moment celebration (Pro tier). This is the one screen in
+      // the app that's deliberately a bit flashy on purpose - see
+      // ConfettiBurst - because someone just paid for the app and a plain
+      // system Alert undersold that. Dismissing takes them back to Settings.
+      setShowWelcome(true);
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleContinueFromWelcome = () => {
+    setShowWelcome(false);
+    navigation.goBack();
   };
 
   const handleRestore = async () => {
@@ -128,6 +138,20 @@ export function UpgradeScreen() {
           <Text style={{ color: theme.textMuted }}>Maybe later</Text>
         </Pressable>
       </ScrollView>
+
+      <Modal visible={showWelcome} transparent animationType="fade" onRequestClose={handleContinueFromWelcome}>
+        <View style={styles.welcomeBackdrop}>
+          <ConfettiBurst run={showWelcome} />
+          <View style={[styles.welcomeCard, raisedShadow, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.welcomeTitle, { color: theme.text }]}>Welcome to the family</Text>
+            <Text style={[styles.welcomeBody, { color: theme.textMuted }]}>
+              Thank you for supporting Quiet Signal. You've unlocked unlimited recipients, full 90-day
+              history, and every background in the library - we're really glad to have you with us.
+            </Text>
+            <PrimaryButton label="Continue" onPress={handleContinueFromWelcome} />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -158,4 +182,20 @@ const styles = StyleSheet.create({
   saveBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
   price: { fontSize: fontSizes.title, fontFamily: fonts.bodyBold, marginVertical: spacing.xs },
   alreadyPro: { textAlign: "center", fontWeight: "600", marginBottom: spacing.md },
+  welcomeBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.lg,
+  },
+  welcomeCard: {
+    width: "100%",
+    maxWidth: 380,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    alignItems: "center",
+  },
+  welcomeTitle: { fontSize: fontSizes.largeTitle, fontFamily: fonts.heading, marginBottom: spacing.sm, textAlign: "center" },
+  welcomeBody: { fontSize: fontSizes.body, lineHeight: 23, textAlign: "center", marginBottom: spacing.lg },
 });

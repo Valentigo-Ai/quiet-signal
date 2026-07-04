@@ -71,15 +71,15 @@ export const raisedShadow = {
   elevation: 4,
 };
 
-// For text sitting directly over a background photo (see ScreenBackground).
-// ScreenBackground now also applies a soft full-image gradient scrim, so
-// this shadow is a second layer of insurance rather than the only thing
-// standing between text and a busy photo. Strengthened slightly (opacity
-// and radius both up) after real-device screenshots showed the previous
-// values weren't reliably enough on high-detail images - a "halo" around
-// the text is one of WCAG's own recognised alternatives to a background
-// scrim (W3C 1.4.3, technique G18), which is why it's stronger than a
-// typical decorative shadow.
+// For text sitting directly over a background photo (see ScreenBackground -
+// which deliberately does NOT dim the photo itself anymore, so photos stay
+// fully clear). Prefer wrapping text in TextOnPhoto (an opaque card) over
+// relying on this shadow alone - it's a reasonable fallback for very short,
+// low-stakes labels, but real-device screenshots have shown shadow-only text
+// becoming hard to read against busy/high-detail photos. A "halo" like this
+// is one of WCAG's own recognised alternatives to a background scrim (W3C
+// 1.4.3, technique G18), which is why it's stronger than a typical
+// decorative shadow - but it's not as reliable as an opaque card.
 export const imageTextShadow = {
   textShadowColor: "rgba(0,0,0,0.65)",
   textShadowOffset: { width: 0, height: 1 },
