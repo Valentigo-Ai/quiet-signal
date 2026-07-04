@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable, Share, Alert } from "react-native";
+import { View, Text, StyleSheet, FlatList, Pressable, Alert, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import Svg, { Polyline, Line, Circle } from "react-native-svg";
@@ -9,6 +9,7 @@ import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { supabase } from "@/lib/supabase";
+import { downloadCheckinPdfReport } from "@/lib/pdfReport";
 import { spacing, fontSizes, radii, fonts } from "@/lib/theme";
 
 // Minimum check-ins before a "trend" line is shown at all. Two points
@@ -38,8 +39,9 @@ const RANGES = [...FREE_HISTORY_RANGES, ...PRO_ONLY_HISTORY_RANGES] as const;
 
 // Section 4.4 - calendar/list view + simple trend lines. Private to the
 // user unless explicitly shared elsewhere; purpose is spotting patterns,
-// optionally to show a GP/therapist. 90-day range and report export are
-// Pro (Section: Pro tier, July 2026) - everything else here stays free.
+// optionally to show to whoever the user chooses. 90-day range and PDF
+// report export are Pro (Section: Pro tier, July 2026) - everything else
+// here stays free.
 export function HistoryScreen() {
   const { theme } = useAppTheme();
   const { isPro } = usePro();
@@ -48,6 +50,7 @@ export function HistoryScreen() {
   const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
   const [range, setRange] = useState<(typeof RANGES)[number]>(7);
   const [checkins, setCheckins] = useState<Checkin[]>([]);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -154,7 +157,15 @@ export function HistoryScreen() {
     return lines.join("\n");
   };
 
-  const handleExport = async () => {
+  // Downloads an actual PDF (via expo-print) rather than pasting the
+  // summary into a text message - deliberately framed as "download a
+  // report" rather than "for your doctor": the content is the same
+  // self-reported, plain-language summary either way, but naming it for a
+  // specific clinical audience invited more scrutiny than the feature
+  // itself warrants. The share sheet this opens still covers email, Files,
+  // WhatsApp, printing, or just saving it - whoever the person wants to
+  // show it to, doctor or otherwise.
+  const handleDownloadReport = async () => {
     if (!isPro) {
       navigation.navigate("Upgrade");
       return;
@@ -163,13 +174,17 @@ export function HistoryScreen() {
       Alert.alert("Nothing to export yet", "Log a few check-ins first.");
       return;
     }
+    setDownloading(true);
     try {
-      await Share.share({
-        title: "Quiet Signal check-in summary",
-        message: buildShareSummary(),
+      await downloadCheckinPdfReport({
+        rangeLabel: `Last ${range} days`,
+        summaryText: buildShareSummary(),
+        rows: checkins,
       });
-    } catch {
-      // user cancelled the share sheet - nothing to do
+    } catch (e: any) {
+      Alert.alert("Couldn't create report", e.message ?? "Please try again.");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -201,10 +216,18 @@ export function HistoryScreen() {
         })}
       </View>
 
-      <Pressable onPress={handleExport} style={[styles.exportRow, { borderColor: theme.border, backgroundColor: theme.surface + "D9" }]}>
-        <Text style={{ color: theme.primary, fontWeight: "600" }}>
-          {isPro ? "Share a summary" : "Share a summary (Pro)"}
-        </Text>
+      <Pressable
+        onPress={handleDownloadReport}
+        disabled={downloading}
+        style={[styles.exportRow, { borderColor: theme.border, backgroundColor: theme.surface + "D9", opacity: downloading ? 0.6 : 1 }]}
+      >
+        {downloading ? (
+          <ActivityIndicator color={theme.primary} />
+        ) : (
+          <Text style={{ color: theme.primary, fontWeight: "600" }}>
+            {isPro ? "Download PDF report" : "Download PDF report (Pro)"}
+          </Text>
+        )}
       </Pressable>
 
       {checkins.length === 0 ? (

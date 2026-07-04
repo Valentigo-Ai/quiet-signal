@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, StyleSheet, FlatList, Pressable, Alert, ActivityIndicator, Linking } from "react-native";
+import { View, Text, TextInput, StyleSheet, FlatList, Pressable, Alert, ActivityIndicator, Linking, Platform } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -66,6 +66,17 @@ export function ShareFlowScreen() {
         const canOpen = await Linking.canOpenURL(delivery.sms_link);
         if (canOpen) {
           await Linking.openURL(delivery.sms_link);
+        } else if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard) {
+          // Desktop browsers have no phone/SMS app to hand off to at all -
+          // this is the expected path there, not an error case. Copying the
+          // message means the person can still paste it into email,
+          // WhatsApp Web, or wherever they'd actually reach this recipient
+          // from a computer, rather than just hitting a dead end.
+          await navigator.clipboard.writeText(message);
+          Alert.alert(
+            "Message copied",
+            "Your device can't send a text directly from here, so we've copied the message - paste it into an email or chat with the person you'd like to reach."
+          );
         } else {
           Alert.alert(
             "Couldn't open Messages",

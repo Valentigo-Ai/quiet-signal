@@ -88,7 +88,8 @@ export function RecipientsScreen() {
         {atFreeLimit ? (
           <View style={[styles.upsell, { backgroundColor: theme.primarySoft, borderColor: theme.border, borderRadius: radii.md }]}>
             <Text style={{ color: theme.text }}>
-              Free plan includes 1 recipient. Upgrade to Pro to share with more people.
+              Free plan includes 1 recipient. Upgrade to Pro for unlimited recipients - add your whole
+              circle, no limit.
             </Text>
           </View>
         ) : null}

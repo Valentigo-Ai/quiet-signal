@@ -1,4 +1,5 @@
 import "react-native-url-polyfill/auto";
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 
@@ -17,7 +18,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    // On native, Google sign-in comes back through a custom URL scheme
+    // handled manually in AuthContext (see signInWithGoogle) - detecting a
+    // session from the URL doesn't apply there. On web there's no app
+    // scheme to redirect to, so Google sends the browser straight back to
+    // this same page with the session tokens in the URL - this flag is
+    // what makes supabase-js pick those up automatically on load, which is
+    // what the web branch of signInWithGoogle relies on.
+    detectSessionInUrl: Platform.OS === "web",
   },
 });
 

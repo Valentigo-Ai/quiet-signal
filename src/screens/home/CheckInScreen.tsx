@@ -8,6 +8,7 @@ import { CrisisBanner } from "@/components/CrisisBanner";
 import { ScaleInput } from "@/components/ScaleInput";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
+import { BackgroundTeaserGallery } from "@/components/BackgroundTeaserGallery";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { supabase } from "@/lib/supabase";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
@@ -127,6 +128,8 @@ export function CheckInScreen() {
           </Text>
         </TextOnPhoto>
         <PrimaryButton label="Log today" onPress={handleLog} loading={saving} />
+
+        <BackgroundTeaserGallery screenKey="checkin" />
       </ScrollView>
     </ScreenBackground>
   );

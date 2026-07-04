@@ -16,12 +16,12 @@ import { spacing, fontSizes, radii, raisedShadow, fonts } from "@/lib/theme";
 // needs to change to go live with real payments.
 const BENEFITS = [
   {
-    title: "Share with more than one person",
-    body: "Free keeps you to one trusted contact. Pro lets you add your whole circle - partner, family, care team.",
+    title: "Unlimited recipients",
+    body: "Free keeps you to one trusted contact. Pro removes the limit entirely - add your whole circle: partner, family, care team.",
   },
   {
-    title: "Extended history & flexible export",
-    body: "See 90-day trends (not just 7/30) and export a clean summary to bring to a GP or therapist appointment.",
+    title: "Extended history & PDF reports",
+    body: "See 90-day trends (not just 7/30) and download a full PDF report you can share with whoever you choose.",
   },
   {
     title: "Extra backgrounds",

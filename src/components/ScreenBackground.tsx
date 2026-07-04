@@ -49,6 +49,13 @@ export function ScreenBackground({
 }
 
 const styles = StyleSheet.create({
-  image: { flex: 1 },
+  // width/height: "100%" alongside flex: 1 - on web, ImageBackground falls
+  // back to the source image's own intrinsic pixel dimensions (e.g.
+  // 1080x1920, a phone-photo crop) unless it's given an explicit percentage
+  // size, since flex alone doesn't always propagate through its web
+  // implementation the way it does natively. Without this, the whole app
+  // renders squeezed into a narrow phone-sized column on desktop browsers
+  // instead of filling the window.
+  image: { flex: 1, width: "100%", height: "100%" },
   safeArea: { flex: 1 },
 });

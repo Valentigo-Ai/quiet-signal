@@ -1,5 +1,6 @@
 import "react-native-url-polyfill/auto";
 import React, { useEffect } from "react";
+import { Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { AuthProvider } from "@/context/AuthContext";
@@ -20,6 +21,26 @@ export default function App() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded]);
+
+  // Web-only layout fix: outside of Expo Router (which ships its own HTML
+  // template with this built in), the browser's html/body/#root elements
+  // have no defined height or width, so React Native Web's flex:1 screens
+  // just shrink-wrap to their content instead of filling the browser
+  // window - the "narrow column on the left" look this was producing.
+  // Injected via plain DOM APIs, guarded by Platform.OS, so it's a no-op
+  // (and never even runs) on native.
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+    const style = document.createElement("style");
+    style.textContent = `
+      html, body, #root { height: 100%; width: 100%; margin: 0; padding: 0; }
+      #root { display: flex; flex: 1; }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   if (!fontsLoaded) return null;
 

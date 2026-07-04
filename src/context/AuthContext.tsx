@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { Platform } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import * as WebBrowser from "expo-web-browser";
 import { supabase } from "@/lib/supabase";
@@ -79,6 +80,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // expo-web-browser rather than the native Google Sign-In SDK, since it
   // needs no extra native config beyond the app's existing URL scheme.
   const signInWithGoogle = async () => {
+    // Web has no app URL scheme to redirect back to - Google sends the
+    // browser straight back to this same page instead, and
+    // detectSessionInUrl (see supabase.ts) picks up the resulting session
+    // automatically once the page reloads. This function returns
+    // immediately after kicking off the redirect; the actual sign-in
+    // completes via onAuthStateChange after the page comes back.
+    if (Platform.OS === "web") {
+      const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo },
+      });
+      if (error) throw error;
+      return;
+    }
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: GOOGLE_REDIRECT_URL, skipBrowserRedirect: true },

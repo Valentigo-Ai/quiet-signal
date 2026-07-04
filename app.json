@@ -47,6 +47,14 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
+    },
+    "web": {
+      "favicon": "./assets/brand/icon.png",
+      "bundler": "metro",
+      "name": "Quiet Signal"
+    },
+    "experiments": {
+      "baseUrl": "/app"
     }
   }
 }
