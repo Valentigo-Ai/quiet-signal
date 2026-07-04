@@ -1,0 +1,2 @@
+cd "C:\Users\zargo\OneDrive\Desktop\Quiet Signal app\Quiet Signal 3"
+npx expo start --tunnel
