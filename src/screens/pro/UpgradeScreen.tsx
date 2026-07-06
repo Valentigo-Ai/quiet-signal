@@ -105,7 +105,7 @@ export function UpgradeScreen() {
               >
                 {p.savePercent ? (
                   <View style={[styles.saveBadge, { backgroundColor: theme.primary }]}>
-                    <Text style={styles.saveBadgeText}>Save {p.savePercent}%</Text>
+                    <Text style={[styles.saveBadgeText, { color: theme.onPrimary }]}>Save {p.savePercent}%</Text>
                   </View>
                 ) : null}
                 <Text style={{ color: theme.text, fontWeight: "700" }}>{p.label}</Text>
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 10,
   },
-  saveBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
+  saveBadgeText: { fontSize: 11, fontWeight: "700" },
   price: { fontSize: fontSizes.title, fontFamily: fonts.bodyBold, marginVertical: spacing.xs },
   alreadyPro: { textAlign: "center", fontWeight: "600", marginBottom: spacing.md },
   welcomeBackdrop: {

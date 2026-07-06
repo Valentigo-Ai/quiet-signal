@@ -24,7 +24,8 @@ export function PrimaryButton({
 
   const bg =
     variant === "primary" ? theme.primary : variant === "danger" ? theme.danger : theme.primarySoft;
-  const fg = variant === "secondary" ? theme.text : "#FFFFFF";
+  const fg =
+    variant === "secondary" ? theme.text : variant === "danger" ? theme.onDanger : theme.onPrimary;
 
   return (
     <Pressable

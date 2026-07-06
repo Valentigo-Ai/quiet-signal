@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "icon": "./assets/brand/icon.png",
     "splash": {
-      "backgroundColor": "#F6F1EB",
+      "backgroundColor": "#0B1128",
       "image": "./assets/brand/splash.png",
       "resizeMode": "contain"
     },
@@ -16,7 +16,7 @@
       "package": "com.quietsignal.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/brand/adaptive-icon.png",
-        "backgroundColor": "#8A6552"
+        "backgroundColor": "#0B1128"
       },
       "permissions": [
         "NOTIFICATIONS"
@@ -29,7 +29,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/brand/splash.png",
-          "backgroundColor": "#F6F1EB",
+          "backgroundColor": "#0B1128",
           "imageWidth": 220
         }
       ],

@@ -40,14 +40,14 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
       <head>
         <meta charset="utf-8" />
         <style>
-          body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #2B2622; padding: 32px; }
+          body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #1C2240; padding: 32px; }
           h1 { font-size: 22px; margin-bottom: 4px; }
-          .muted { color: #6B6259; font-size: 13px; margin-bottom: 24px; }
-          .summary { background: #F6F1EB; border-radius: 12px; padding: 16px; font-size: 15px; line-height: 1.5; margin-bottom: 24px; }
+          .muted { color: #545D8A; font-size: 13px; margin-bottom: 24px; }
+          .summary { background: #EDF0FA; border-radius: 12px; padding: 16px; font-size: 15px; line-height: 1.5; margin-bottom: 24px; }
           table { width: 100%; border-collapse: collapse; font-size: 13px; }
-          th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #E3D8CC; }
-          th { color: #6B6259; font-weight: 600; }
-          .disclaimer { margin-top: 28px; font-size: 11px; color: #6B6259; line-height: 1.5; }
+          th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #CDD4EE; }
+          th { color: #545D8A; font-weight: 600; }
+          .disclaimer { margin-top: 28px; font-size: 11px; color: #545D8A; line-height: 1.5; }
         </style>
       </head>
       <body>

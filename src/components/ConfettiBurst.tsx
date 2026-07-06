@@ -3,7 +3,7 @@ import { Animated, Dimensions, Easing, StyleSheet, View } from "react-native";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
-const COLORS = ["#D8A588", "#8A6552", "#5C7A5A", "#EFE0D6", "#F1EAE3", "#B3413A"];
+const COLORS = ["#F3C77C", "#A7B4E8", "#7FC7AE", "#EEF1FC", "#8FA0D8", "#E8C98A"];
 const PIECE_COUNT = 40;
 
 type Piece = {

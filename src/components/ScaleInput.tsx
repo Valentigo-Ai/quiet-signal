@@ -45,7 +45,7 @@ export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
               <Text
                 style={[
                   styles.pillText,
-                  { color: selected ? "#FFFFFF" : theme.text },
+                  { color: selected ? theme.onPrimary : theme.text },
                 ]}
                 numberOfLines={2}
               >

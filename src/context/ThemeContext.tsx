@@ -17,7 +17,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [override, setOverride] = useState<"light" | "dark" | null>(null);
   const [highContrast, setHighContrast] = useState(false);
 
-  const isDark = (override ?? systemScheme) === "dark";
+  // Midnight is the flagship brand look (matches the website's rebrand), so
+  // the app opens dark by default - like Calm - rather than following the
+  // system scheme. The in-app toggle (Settings) still lets anyone switch to
+  // the soft lavender light mode; that explicit choice always wins.
+  // systemScheme is intentionally unused for the default but kept so a
+  // future "follow system" setting is a one-line change.
+  void systemScheme;
+  const isDark = (override ?? "dark") === "dark";
   const baseTheme = isDark ? darkTheme : lightTheme;
 
   const theme = useMemo(() => {

@@ -3,31 +3,38 @@
 // Large touch targets and generous spacing throughout, since chronic pain
 // and fatigue can affect fine motor control (Section 8 accessibility note).
 
+// "Midnight Signal" palette - matches the website's rebrand (deep indigo
+// night-sky world, lavender mist text, one warm golden accent). Dark mode is
+// the flagship look; light mode is a soft lavender paper, never stark white.
 export const lightTheme = {
   mode: "light" as const,
-  background: "#F6F1EB", // warm off-white, not clinical white
-  surface: "#FFFFFF",
-  text: "#2B2622",
-  textMuted: "#6B6259",
-  primary: "#8A6552", // warm terracotta, not clinical blue/green
-  primarySoft: "#EFE0D6",
-  border: "#E3D8CC",
+  background: "#EDF0FA", // lavender paper, not stark white
+  surface: "#F8F9FE",
+  text: "#1C2240",
+  textMuted: "#545D8A",
+  primary: "#3E4C8F", // deep indigo
+  onPrimary: "#FFFFFF",
+  primarySoft: "#DDE3F8",
+  border: "#CDD4EE",
   danger: "#B3413A",
-  success: "#5C7A5A",
+  onDanger: "#FFFFFF",
+  success: "#2F6B55",
   minTouchTarget: 48,
 };
 
 export const darkTheme = {
   mode: "dark" as const,
-  background: "#1E1A17",
-  surface: "#2A2420",
-  text: "#F1EAE3",
-  textMuted: "#C9BEB3",
-  primary: "#D8A588",
-  primarySoft: "#3A2E27",
-  border: "#3E332B",
+  background: "#0B1128", // midnight
+  surface: "#151D3E",
+  text: "#EEF1FC",
+  textMuted: "#A9B4DC",
+  primary: "#F3C77C", // warm gold - the one accent in the night sky
+  onPrimary: "#3B2508",
+  primarySoft: "#26305C",
+  border: "#2C3560",
   danger: "#E08079",
-  success: "#8FB78C",
+  onDanger: "#2B0F0C",
+  success: "#7FC7AE",
   minTouchTarget: 48,
 };
 

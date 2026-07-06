@@ -196,15 +196,20 @@ export const BACKGROUND_SCREEN_LABELS: Record<BackgroundScreenKey, string> = {
 // journal = quiet reflection, crisis = muted/gentle (never showy on this
 // one), recipients = connection, login/signup = fresh start, settings =
 // neutral backdrop.
+// Midnight Signal rebrand: the first-run screens (welcome, login, signup,
+// checkin) now default to dusk/night photography so the out-of-box app
+// matches the website's deep-indigo brand world. Warmer photos remain the
+// defaults where emotional warmth matters more than brand (share, history),
+// and crisis stays deliberately muted.
 export const DEFAULT_BACKGROUNDS: Record<BackgroundScreenKey, BackgroundImageId> = {
-  welcome: "cairn",
-  checkin: "lake",
+  welcome: "auroraTrees",
+  checkin: "mistyForestLake",
   share: "companion",
   history: "goldenAutumnLake",
   journal: "dolomites",
   crisis: "mistyWater",
   recipients: "gardenBridge",
-  login: "lanternBeach",
-  signup: "azaleaFalls",
+  login: "solitaryDock",
+  signup: "starryNight",
   settings: "forestPeaks",
 };
