@@ -1,0 +1,15 @@
+# Files not needed by EAS builds - keeps the upload small and fast.
+# (EAS uses this instead of .gitignore when present, so node_modules and
+# other .gitignore entries are repeated here.)
+node_modules
+dist
+dist.zip
+app-build.zip
+raw-images
+docs
+project-notes
+web
+supabase
+.git
+PROJECT-STATUS.md
+README.md
