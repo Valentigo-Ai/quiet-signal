@@ -165,7 +165,7 @@ export function ShareFlowScreen() {
                         },
                       ]}
                     >
-                      <Text style={{ color: isSelected ? "#FFF" : theme.text }}>{item.recipient_label}</Text>
+                      <Text style={{ color: isSelected ? theme.onPrimary : theme.text }}>{item.recipient_label}</Text>
                     </Pressable>
                   );
                 }}
@@ -176,8 +176,10 @@ export function ShareFlowScreen() {
 
         <View style={{ flex: 1 }} />
         <PrimaryButton label="Let someone know" onPress={handleShare} loading={sending} disabled={loadingMessage} />
-        <Pressable onPress={keepPrivate} style={{ marginTop: spacing.md, alignItems: "center" }}>
-          <Text style={{ color: theme.textMuted }}>Just for me today</Text>
+        <Pressable onPress={keepPrivate} style={{ marginTop: spacing.md, alignItems: "center", minHeight: theme.minTouchTarget, justifyContent: "center" }}>
+          <TextOnPhoto style={{ alignSelf: "center" }}>
+            <Text style={{ color: theme.text }}>Just for me today</Text>
+          </TextOnPhoto>
         </Pressable>
       </View>
     </ScreenBackground>

@@ -121,13 +121,25 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   sectionPill: { marginTop: spacing.lg, marginBottom: spacing.sm },
   section: { fontSize: 12, fontWeight: "700", letterSpacing: 0.5 },
-  row: { justifyContent: "center", borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: spacing.sm },
+  // Rounded frosted cards rather than flat hairline rows - matches the
+  // History/Journal list rows and the website's frosted-card language.
+  row: {
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+  },
   switchRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    marginBottom: spacing.xs,
   },
   disclaimer: { fontSize: 12, lineHeight: 18 },
 });

@@ -196,20 +196,23 @@ export const BACKGROUND_SCREEN_LABELS: Record<BackgroundScreenKey, string> = {
 // journal = quiet reflection, crisis = muted/gentle (never showy on this
 // one), recipients = connection, login/signup = fresh start, settings =
 // neutral backdrop.
-// Midnight Signal rebrand: the first-run screens (welcome, login, signup,
-// checkin) now default to dusk/night photography so the out-of-box app
-// matches the website's deep-indigo brand world. Warmer photos remain the
-// defaults where emotional warmth matters more than brand (share, history),
-// and crisis stays deliberately muted.
+// Midnight Signal rebrand (full pass): every screen now defaults to
+// dusk/night photography so the whole out-of-box app lives in the same
+// deep-indigo brand world as the website. Chosen for tone within that
+// world: welcome = wonder, checkin = quiet grounding, share = handing a
+// light to someone, history = looking back under a big sky, journal =
+// private night thoughts, crisis = deliberately the most muted and still,
+// recipients = warmth at dusk, login/signup = return and fresh start.
+// The full daytime library is still there for anyone to pick (Pro).
 export const DEFAULT_BACKGROUNDS: Record<BackgroundScreenKey, BackgroundImageId> = {
   welcome: "auroraTrees",
   checkin: "mistyForestLake",
-  share: "companion",
-  history: "goldenAutumnLake",
-  journal: "dolomites",
+  share: "lanternBeach",
+  history: "starlitLake",
+  journal: "starryNight",
   crisis: "mistyWater",
-  recipients: "gardenBridge",
-  login: "solitaryDock",
-  signup: "starryNight",
-  settings: "forestPeaks",
+  recipients: "sunsetJetty",
+  login: "quietDock",
+  signup: "auroraTrees",
+  settings: "mistyForestLake",
 };

@@ -51,6 +51,15 @@ Richard asked for a deep dive on why the app and website felt "bland" rather tha
 - **Found but not fixed:** the footer's social links (Facebook/Instagram/TikTok/WhatsApp) are placeholder URLs (`trans-social_facebook_url` etc.), not real links — needs Richard's actual account URLs.
 - **Not yet done:** small line icons for the three homepage text sections (cheapest remaining visual win, paused before starting). App-side changes (motion, frosted onboarding cards, icon language, fixing the web export's desktop layout) — none started yet, scoped in the audit doc.
 
+## Midnight Signal redesign (6 July 2026 session)
+
+Full rebrand of website + app to the "Midnight Signal" identity (deep indigo #0B1128 world, lavender text, single gold accent #F3C77C, Fraunces display type — Calm-tier look):
+
+- **Website (live):** rebuilt landing page (two-column hero with floating CSS phone mockup of the check-in screen, frosted feature cards, night-graded photo bands, final CTA), midnight styling on all inner pages/header/footer/404/newsletter form, working top nav menu (the old nav block referenced a deleted menu, id 6493 — replaced with new wp_navigation post 104), Fraunces loaded site-wide via footer template part, new midnight favicon (media id 100). Custom CSS lives in Global Styles (post id 63).
+- **App:** new palettes in `src/lib/theme.ts` (dark = flagship midnight, light = soft lavender; added `onPrimary`/`onDanger` tokens), dark-by-default in ThemeContext (brand-first; toggle still in Settings), regenerated brand assets (icon/splash/adaptive in midnight palette), all screens default to dusk/night background photos, Settings rows restyled as frosted cards, ShareFlow contrast fixes, recipient share page + PDF export rethemed.
+- **History screen (product decision, per Richard):** NO trend chart or up/down trend language on screen — people with PTSD/anxiety shouldn't be confronted with "not getting better" lines on a hard day. The screen shows a neutral count, kind copy, and the daily list only; the chart and trend sentence live exclusively in the PDF report (`src/lib/pdfReport.ts`, `buildChartSvg`), viewed by explicit choice.
+- **Deploys:** web export redeployed to `/app/` by uploading only changed fingerprinted files via Hostinger File Browser (avoids the 24 MB zip); `web/index.html` re-uploaded to `/share/`. A stray `dist.zip` was accidentally committed and immediately scrubbed via amend + force-push (now gitignored alongside `app-build.zip`).
+
 ## What's left to do
 
 Everything below genuinely needs Richard's own accounts/access — none of it can be done by an AI agent:
