@@ -5,6 +5,7 @@ import {
   BackgroundScreenKey,
   BACKGROUND_IMAGES,
   DEFAULT_BACKGROUNDS,
+  isFreeBackground,
 } from "@/constants/backgroundLibrary";
 import { usePro } from "@/context/ProContext";
 
@@ -38,9 +39,10 @@ export function BackgroundPrefsProvider({ children }: { children: React.ReactNod
   }, []);
 
   const setBackground = (key: BackgroundScreenKey, id: BackgroundImageId) => {
-    // Defense in depth - only Pro can select a non-default photo, even if
-    // called directly rather than through the (also gated) Settings UI.
-    if (!isPro && id !== DEFAULT_BACKGROUNDS[key]) return;
+    // Defense in depth - free users can only select the free looks (three
+    // signature photos + the screen's default), even if called directly
+    // rather than through the (also gated) pickers.
+    if (!isPro && !isFreeBackground(key, id)) return;
     const next = { ...prefs, [key]: id };
     setPrefs(next);
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));

@@ -216,3 +216,14 @@ export const DEFAULT_BACKGROUNDS: Record<BackgroundScreenKey, BackgroundImageId>
   signup: "auroraTrees",
   settings: "mistyForestLake",
 };
+
+// Calm-style free tier (July 2026): free users get THREE looks to choose
+// between on any screen - the three signature midnight photos - plus that
+// screen's own default if it isn't one of them. Everything else shows a
+// lock badge and routes to the Upgrade screen. Three real choices makes the
+// picker feel generous while leaving 60 photos as a visible reason to go Pro.
+export const FREE_BACKGROUND_IDS: BackgroundImageId[] = ["auroraTrees", "mistyForestLake", "starlitLake"];
+
+export function isFreeBackground(screenKey: BackgroundScreenKey, id: BackgroundImageId): boolean {
+  return FREE_BACKGROUND_IDS.includes(id) || id === DEFAULT_BACKGROUNDS[screenKey];
+}

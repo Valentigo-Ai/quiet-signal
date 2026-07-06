@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { usePro } from "@/context/ProContext";
@@ -13,6 +14,7 @@ import {
   BackgroundCategory,
   BackgroundImageId,
   BackgroundScreenKey,
+  isFreeBackground,
 } from "@/constants/backgroundLibrary";
 import { spacing, fontSizes, radii, cardShadow } from "@/lib/theme";
 
@@ -64,6 +66,12 @@ export function BackgroundsScreen() {
   const [justSavedKey, setJustSavedKey] = useState<BackgroundScreenKey | null>(null);
 
   const choosePhoto = (key: BackgroundScreenKey, id: BackgroundImageId) => {
+    // Free users can pick any of the free looks; a locked photo routes to
+    // the Upgrade screen (same rule as the check-in gallery).
+    if (!isPro && !isFreeBackground(key, id)) {
+      navigation.navigate("Upgrade");
+      return;
+    }
     setBackground(key, id);
     setOpenKey(null);
     setOpenCategory(null);
@@ -82,7 +90,7 @@ export function BackgroundsScreen() {
         {!isPro && (
           <View style={[styles.upsell, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
             <Text style={{ color: theme.text, marginBottom: spacing.sm }}>
-              Free plan uses a fixed photo per screen. Upgrade to Pro to pick any photo in the library.
+              Free includes three looks for every screen. Pro unlocks the whole library.
             </Text>
             <Pressable onPress={() => navigation.navigate("Upgrade")}>
               <Text style={{ color: theme.primary, fontWeight: "700" }}>Upgrade to Pro</Text>
@@ -109,14 +117,14 @@ export function BackgroundsScreen() {
                   )}
                 </View>
                 <Pressable
-                  onPress={() => (isPro ? toggleKey(key) : navigation.navigate("Upgrade"))}
+                  onPress={() => toggleKey(key)}
                   style={[styles.changeButton, { backgroundColor: theme.primarySoft, minHeight: theme.minTouchTarget }]}
                 >
-                  <Text style={{ color: theme.text, fontWeight: "600" }}>{isPro ? (isOpen ? "Close" : "Change") : "Pro"}</Text>
+                  <Text style={{ color: theme.text, fontWeight: "600" }}>{isOpen ? "Close" : "Change"}</Text>
                 </Pressable>
               </View>
 
-              {isOpen && isPro && (
+              {isOpen && (
                 <View style={{ marginTop: spacing.md }}>
                   <Text style={{ color: theme.textMuted, fontSize: fontSizes.label, marginBottom: spacing.sm }}>
                     {Object.keys(BACKGROUND_IMAGES).length} photos to choose from
@@ -144,17 +152,25 @@ export function BackgroundsScreen() {
                             photos after the first row. */}
                         {isCategoryOpen && (
                           <View style={styles.optionGrid}>
-                            {ids.map((id) => (
-                              <Pressable key={id} onPress={() => choosePhoto(key, id)}>
-                                <Image
-                                  source={BACKGROUND_IMAGES[id].source}
-                                  style={[
-                                    styles.optionThumb,
-                                    { borderColor: id === currentId ? theme.primary : "transparent" },
-                                  ]}
-                                />
-                              </Pressable>
-                            ))}
+                            {ids.map((id) => {
+                              const locked = !isPro && !isFreeBackground(key, id);
+                              return (
+                                <Pressable key={id} onPress={() => choosePhoto(key, id)} style={{ position: "relative" }}>
+                                  <Image
+                                    source={BACKGROUND_IMAGES[id].source}
+                                    style={[
+                                      styles.optionThumb,
+                                      { borderColor: id === currentId ? theme.primary : "transparent" },
+                                    ]}
+                                  />
+                                  {locked && (
+                                    <View style={styles.lockBadge}>
+                                      <Ionicons name="lock-closed" size={11} color="#EEF1FC" />
+                                    </View>
+                                  )}
+                                </Pressable>
+                              );
+                            })}
                           </View>
                         )}
                       </View>
@@ -186,4 +202,15 @@ const styles = StyleSheet.create({
   categoryLabel: { fontSize: 12, fontWeight: "700", letterSpacing: 0.5 },
   optionGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.xs },
   optionThumb: { width: 90, height: 120, borderRadius: radii.sm, borderWidth: 3 },
+  lockBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(11,17,40,0.75)",
+  },
 });

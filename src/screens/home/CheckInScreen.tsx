@@ -36,6 +36,17 @@ const ENERGY_LABELS: [string, string, string, string, string] = [
   "Great",
 ];
 
+// Time-aware greeting (July 2026, matches the website's hero mockup):
+// "Good morning/afternoon/evening" plus a day/tonight-phrased question.
+// Warmer than a generic title, and it quietly signals the app knows this is
+// a moment in YOUR day - the same trick Calm's home screen uses.
+function getGreeting(): { greeting: string; question: string } {
+  const h = new Date().getHours();
+  if (h < 12) return { greeting: "Good morning", question: "How are you doing today?" };
+  if (h < 18) return { greeting: "Good afternoon", question: "How are you doing today?" };
+  return { greeting: "Good evening", question: "How are you doing tonight?" };
+}
+
 // Core daily loop (Section 4.2 / Flow B). Target: under 15 seconds for a
 // returning user - three tap-scales, optional note, one button.
 export function CheckInScreen() {
@@ -100,7 +111,8 @@ export function CheckInScreen() {
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: tabBarHeight + spacing.lg }}>
         <CrisisBanner />
         <TextOnPhoto style={{ marginBottom: spacing.lg }}>
-          <Text style={[styles.title, { color: theme.text }]}>How are you today?</Text>
+          <Text style={[styles.title, { color: theme.text }]}>{getGreeting().greeting}</Text>
+          <Text style={[styles.subtitle, { color: theme.textMuted }]}>{getGreeting().question}</Text>
         </TextOnPhoto>
 
         <ScaleInput label="Pain" value={pain} onChange={setPain} scaleLabels={PAIN_LABELS} />
@@ -122,12 +134,12 @@ export function CheckInScreen() {
           ]}
         />
 
-        <TextOnPhoto style={{ alignSelf: "center", marginBottom: spacing.sm }}>
+        <PrimaryButton label="Save check-in" onPress={handleLog} loading={saving} />
+        <TextOnPhoto style={{ alignSelf: "center", marginTop: spacing.sm }}>
           <Text style={[styles.helperText, { color: theme.textMuted }]}>
-            After logging, you'll get the chance to let someone know how you're doing - or keep it just for you.
+            Private by default · Share only if you choose
           </Text>
         </TextOnPhoto>
-        <PrimaryButton label="Log today" onPress={handleLog} loading={saving} />
 
         <BackgroundTeaserGallery screenKey="checkin" />
       </ScrollView>
@@ -138,6 +150,7 @@ export function CheckInScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   title: { fontSize: fontSizes.largeTitle, fontFamily: fonts.heading },
+  subtitle: { fontSize: fontSizes.label, marginTop: 2 },
   label: { fontSize: fontSizes.label, fontWeight: "600" },
   helperText: { fontSize: fontSizes.label, textAlign: "center" },
   noteInput: {

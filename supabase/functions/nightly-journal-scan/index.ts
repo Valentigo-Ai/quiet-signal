@@ -18,39 +18,68 @@ import { extractThemesByCategory } from "../_shared/themeDictionary.ts";
 
 // Non-exhaustive starter wordlist. This MUST be reviewed and expanded by a
 // clinical/safety advisor before public launch - ship-blocking per spec
-// Section 4.5, but this file provides the mandatory mechanism. The extra
-// patterns below (added July 2026) are common phrasings referenced in
-// public crisis-line training materials, added by Claude as a good-faith
-// broadening pass - this is still NOT a substitute for the clinical/safety
-// review this file has always required before launch. Treat every pattern
-// here as a starting point, not a finished list.
+// Section 4.5, but this file provides the mandatory mechanism. The patterns
+// below were broadened in July 2026 (see docs/crisis-wordlist-review.md for
+// the full structured review, findings, and known gaps) - this is still NOT
+// a substitute for the professional review this file has always required.
+// Design bias is deliberately toward sensitivity: a false positive costs a
+// gentle resources screen; a false negative costs silence when it matters.
 const CRISIS_PATTERNS: RegExp[] = [
-  /\bkill myself\b/i,
+  // Direct ideation
+  /\bkill(ing)? myself\b/i,
   /\bsuicid(e|al)\b/i,
   /\bend it all\b/i,
-  /\bwant(ed)? to die\b/i,
-  /\bno reason to live\b/i,
-  /\bself[\s-]?harm\b/i,
-  /\bhurt(ing)? myself\b/i,
-  /\bcut(ting)? myself\b/i,
-  /\bnot (worth|going to) (be here|make it)\b/i,
-  /\bbetter off (dead|without me)\b/i,
-  /\bcan'?t (go on|do this anymore)\b/i,
+  /\bend(ing)? my (own )?life\b/i,
+  /\bwant(ed|ing)? to die\b/i,
+  /\bwish I (was|were) dead\b/i,
+  /\bready to die\b/i,
   /\bplan to (die|end it)\b/i,
+  /\bthinking about ending (it|my life)\b/i,
+  /\bkms\b/i,
+  /\bunalive\b/i,
+  /\boverdos(e|ing|ed)\b/i,
+  // Passive ideation
+  /\bno reason to live\b/i,
   /\bno point (in )?living\b/i,
   /\bwish I (wasn'?t|weren'?t) here\b/i,
   /\btired of (living|being alive)\b/i,
+  /\bdon'?t want to (be here|exist|wake up)( anymore)?\b/i,
+  /\b(hope|wish) I don'?t wake up\b/i,
+  /\bsleep forever\b/i,
   /\bwant it to (be over|stop)\b/i,
+  // Self-harm
+  /\bself[\s-]?harm\b/i,
+  /\bhurt(ing)? myself\b/i,
+  /\bharm(ing)? myself\b/i,
+  /\bcut(ting)? myself\b/i,
+  /\bburn(ing)? myself\b/i,
+  /\bstarv(e|ing) myself\b/i,
+  // Hopelessness / burden / farewell
+  /\bnot (worth|going to) (be here|make it)\b/i,
+  /\bbetter off (dead|without me)\b/i,
+  /\bcan'?t (go on|do this anymore|take (it|this) anymore)\b/i,
   /\bgive up on (everything|life)\b/i,
   /\bno way out\b/i,
-  /\bdon'?t want to (be here|exist) anymore\b/i,
-  /\bthinking about ending (it|my life)\b/i,
+  /\bI'?m (such )?a burden\b/i,
+  /\bwon'?t be (here|around) (much longer|for long)\b/i,
   /\bgoodbye (forever|for good)\b/i,
   /\beveryone('s| is) better off without me\b/i,
 ];
 
+// Normalize before matching: iOS/Android keyboards insert curly quotes
+// (can't vs can't), which silently broke every apostrophe pattern above for
+// phone-typed entries - the app's primary input source. Also collapses
+// whitespace so line breaks inside a phrase still match.
+function normalizeForScan(text: string): string {
+  return text
+    .replace(/[‘’ʼ]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\s+/g, " ");
+}
+
 function checkCrisisLanguage(text: string): boolean {
-  return CRISIS_PATTERNS.some((p) => p.test(text));
+  const normalized = normalizeForScan(text);
+  return CRISIS_PATTERNS.some((p) => p.test(normalized));
 }
 
 Deno.serve(async (req) => {
@@ -93,6 +122,30 @@ Deno.serve(async (req) => {
         processed_at: new Date().toISOString(),
       })
       .eq("id", entry.id);
+  }
+
+  // STEP 1b (July 2026 safety review, finding 1): check-in NOTES get the same
+  // mandatory crisis check. Previously only journal entries were scanned -
+  // the optional note on the daily check-in (the app's core loop) was
+  // invisible to the safety net. Same wordlist, same signposting response
+  // (useCrisisCheck reads flagged_crisis from both tables).
+  const { data: unscannedCheckins } = await supabase
+    .from("checkins")
+    .select("id, note")
+    .is("note_scanned_at", null)
+    .limit(500);
+
+  for (const checkin of unscannedCheckins ?? []) {
+    const flagged = !!checkin.note && checkCrisisLanguage(checkin.note);
+    if (flagged) flaggedCount++;
+
+    await supabase
+      .from("checkins")
+      .update({
+        flagged_crisis: flagged,
+        note_scanned_at: new Date().toISOString(),
+      })
+      .eq("id", checkin.id);
   }
 
   // STEP 3: weekly, per-user theme/summary generation - non-flagged entries only.
@@ -149,6 +202,7 @@ Deno.serve(async (req) => {
   return new Response(
     JSON.stringify({
       processed: entries?.length ?? 0,
+      checkin_notes_processed: unscannedCheckins?.length ?? 0,
       flagged: flaggedCount,
       insights_generated: insightsGenerated,
     }),
