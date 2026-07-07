@@ -8,7 +8,6 @@ import { CrisisBanner } from "@/components/CrisisBanner";
 import { ScaleInput } from "@/components/ScaleInput";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
-import { BackgroundTeaserGallery } from "@/components/BackgroundTeaserGallery";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { supabase } from "@/lib/supabase";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
@@ -141,7 +140,21 @@ export function CheckInScreen() {
           </Text>
         </TextOnPhoto>
 
-        <BackgroundTeaserGallery screenKey="checkin" />
+        {/* The Backgrounds teaser gallery used to live here, right under
+            "Save check-in" - a Calm-style browsable photo strip on the one
+            screen this whole app is built around finishing in ~15 seconds.
+            Removed on purpose (per Richard, July 2026): a row of vivid,
+            competing thumbnails at the exact moment someone anxious/in pain
+            is trying to wrap up a quick task is decision fatigue at the
+            worst possible spot, not a nice-to-have. Calm/Headspace's own
+            browsable libraries live on dedicated Home/Library tabs and their
+            paywall screen - places people go on purpose - not stapled onto
+            the fast daily task. The full picker still lives at
+            Settings > Backgrounds (BackgroundsScreen.tsx), a proper
+            self-selected destination; the Upgrade screen now shows a small
+            visual preview too, since selling Pro is that screen's actual
+            job. Don't re-add a gallery here without revisiting that
+            reasoning. */}
       </ScrollView>
     </ScreenBackground>
   );

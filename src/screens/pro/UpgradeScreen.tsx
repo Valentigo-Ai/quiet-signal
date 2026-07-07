@@ -1,13 +1,15 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Modal } from "react-native";
+import { View, Text, Image, StyleSheet, ScrollView, Pressable, Alert, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/context/ThemeContext";
 import { usePro, ProPlanId } from "@/context/ProContext";
 import { useCrisisCountry } from "@/context/CrisisCountryContext";
 import { getProPlans } from "@/constants/proPricing";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ConfettiBurst } from "@/components/ConfettiBurst";
+import { BACKGROUND_IMAGES, BackgroundImageId } from "@/constants/backgroundLibrary";
 import { spacing, fontSizes, radii, raisedShadow, fonts } from "@/lib/theme";
 
 // Placeholder paywall UI (Section: Pro tier, July 2026). Crisis resources,
@@ -28,8 +30,23 @@ const BENEFITS = [
   },
   {
     title: "Extra backgrounds",
-    body: "Choose any photo in the library for your Welcome, Check-in, and Share screens, not just the defaults.",
+    body: `Choose any of the ${Object.keys(BACKGROUND_IMAGES).length} photos in the library for your Welcome, Check-in, and Share screens, not just the defaults.`,
   },
+];
+
+// A handful of varied, already-graded library photos to preview here - the
+// only place in the app a browsable background gallery lives now (moved off
+// CheckInScreen, per Richard, July 2026 - a vivid photo strip has no
+// business competing for attention on the daily 15-second check-in; this
+// paywall screen is the one place "look how nice these are" is honestly the
+// point, not noise).
+const PREVIEW_IDS: BackgroundImageId[] = [
+  "turquoiseCabin",
+  "dolomitesCabin",
+  "roseArchway",
+  "oceanSunsetRocks",
+  "lighthouseCoast",
+  "goldenAutumnLake",
 ];
 
 export function UpgradeScreen() {
@@ -84,6 +101,18 @@ export function UpgradeScreen() {
           <View key={b.title} style={[styles.card, raisedShadow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Text style={[styles.cardTitle, { color: theme.text }]}>{b.title}</Text>
             <Text style={[styles.cardBody, { color: theme.textMuted }]}>{b.body}</Text>
+            {b.title === "Extra backgrounds" && !isPro && (
+              <View style={styles.previewRow}>
+                {PREVIEW_IDS.map((id) => (
+                  <View key={id} style={styles.previewThumbWrap}>
+                    <Image source={BACKGROUND_IMAGES[id].source} resizeMode="cover" style={styles.previewThumb} />
+                    <View style={styles.previewLock}>
+                      <Ionicons name="lock-closed" size={10} color="#EEF1FC" />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         ))}
 
@@ -167,6 +196,26 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.md, marginBottom: spacing.md },
   cardTitle: { fontSize: fontSizes.body, fontFamily: fonts.bodyBold, marginBottom: spacing.xs },
   cardBody: { fontSize: fontSizes.label, lineHeight: 20 },
+  previewRow: { flexDirection: "row", gap: spacing.xs, marginTop: spacing.sm },
+  previewThumbWrap: {
+    position: "relative",
+    flex: 1,
+    aspectRatio: 3 / 4,
+    borderRadius: radii.sm,
+    overflow: "hidden",
+  },
+  previewThumb: { width: "100%", height: "100%" },
+  previewLock: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(11,17,40,0.75)",
+  },
   planRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm },
   planCard: {
     flex: 1,
