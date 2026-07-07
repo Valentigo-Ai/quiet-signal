@@ -34,7 +34,14 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-navigation-bar",
+        {
+          "barStyle": "light",
+          "enforceContrast": false
+        }
+      ]
     ],
     "extra": {
       "eas": {

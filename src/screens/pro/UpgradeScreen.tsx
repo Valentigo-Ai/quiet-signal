@@ -21,7 +21,10 @@ const BENEFITS = [
   },
   {
     title: "Extended history & PDF reports",
-    body: "See 90-day trends (not just 7/30) and download a full PDF report you can share with whoever you choose.",
+    // Matches the exact copy on the History screen's own download row, so
+    // the messaging is consistent wherever this Pro feature is mentioned:
+    // trends/charts only ever live in the PDF, viewed by choice.
+    body: "See 90-day trends (not just 7/30) and download a full PDF report you can share with whoever you choose. Trends and charts live in your report - look when you choose to.",
   },
   {
     title: "Extra backgrounds",
@@ -146,7 +149,8 @@ export function UpgradeScreen() {
             <Text style={[styles.welcomeTitle, { color: theme.text }]}>Welcome to the family</Text>
             <Text style={[styles.welcomeBody, { color: theme.textMuted }]}>
               Thank you for supporting Quiet Signal. You've unlocked unlimited recipients, full 90-day
-              history, and every background in the library - we're really glad to have you with us.
+              history with downloadable PDF reports, and every background in the library. Trends and
+              charts live in your report - look when you choose to. We're really glad to have you with us.
             </Text>
             <PrimaryButton label="Continue" onPress={handleContinueFromWelcome} />
           </View>

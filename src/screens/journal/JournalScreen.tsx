@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, StyleSheet, FlatList, Alert } from "react-native";
+import { View, Text, TextInput, StyleSheet, FlatList, Alert, Pressable } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
@@ -22,6 +23,11 @@ export function JournalScreen() {
   const [text, setText] = useState("");
   const [entries, setEntries] = useState<Entry[]>([]);
   const [saving, setSaving] = useState(false);
+  // Saved entries are collapsed by default (Richard's request, July 2026) -
+  // consistent with History's disclosure pattern, and it keeps the writing
+  // box (the actual point of this screen) as the thing someone sees first
+  // instead of a wall of old entries.
+  const [showEntries, setShowEntries] = useState(false);
 
   const loadEntries = async () => {
     const { data } = await supabase
@@ -62,35 +68,59 @@ export function JournalScreen() {
   return (
     <ScreenBackground source={getSource("journal")}>
       <View style={styles.container}>
-      <TextOnPhoto style={styles.titleCard}>
-        <Text style={[styles.title, { color: theme.text }]}>Journal</Text>
-        <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-          Private by default - just for you, unless you choose otherwise.
-        </Text>
-      </TextOnPhoto>
+        <TextOnPhoto style={styles.titleCard}>
+          <Text style={[styles.title, { color: theme.text }]}>Journal</Text>
+          <Text style={[styles.subtitle, { color: theme.textMuted }]}>
+            Private by default - just for you, unless you choose otherwise.
+          </Text>
+        </TextOnPhoto>
 
-      <TextInput
-        placeholder="Write whatever's on your mind..."
-        placeholderTextColor={theme.textMuted}
-        value={text}
-        onChangeText={setText}
-        multiline
-        style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface + "F0" }]}
-      />
-      <PrimaryButton label="Save entry" onPress={handleSave} loading={saving} />
+        {/* The write-in box is the actual point of this screen, so it gets
+            the vertical center and most of the room - not squeezed above a
+            list of old entries. justifyContent: "center" on this flex:1
+            wrapper is what pushes it to the middle of the remaining space
+            between the title and the entries toggle below. */}
+        <View style={styles.writeSection}>
+          <TextInput
+            placeholder="Write whatever's on your mind..."
+            placeholderTextColor={theme.textMuted}
+            value={text}
+            onChangeText={setText}
+            multiline
+            style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface + "F0" }]}
+          />
+          <PrimaryButton label="Save entry" onPress={handleSave} loading={saving} />
+        </View>
 
-      <FlatList
-        style={{ marginTop: spacing.lg }}
-        contentContainerStyle={{ paddingBottom: tabBarHeight + spacing.lg }}
-        data={entries}
-        keyExtractor={(e) => e.id}
-        renderItem={({ item }) => (
-          <View style={[styles.entryRow, { borderColor: theme.border, backgroundColor: theme.surface + "D9" }]}>
-            <Text style={{ color: theme.textMuted, fontSize: 12 }}>{item.date}</Text>
-            <Text style={{ color: theme.text }}>{item.entry_text}</Text>
-          </View>
+        <Pressable
+          onPress={() => setShowEntries((v) => !v)}
+          style={[
+            styles.disclosureRow,
+            { borderColor: theme.border, backgroundColor: theme.surface + "E6", minHeight: theme.minTouchTarget },
+          ]}
+        >
+          <Text style={{ color: theme.text, fontWeight: "600" }}>
+            {showEntries ? "Hide saved entries" : "Show saved entries"}
+          </Text>
+          <Ionicons name={showEntries ? "chevron-up" : "chevron-down"} size={20} color={theme.textMuted} />
+        </Pressable>
+
+        {showEntries ? (
+          <FlatList
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingBottom: tabBarHeight + spacing.xl }}
+            data={entries}
+            keyExtractor={(e) => e.id}
+            renderItem={({ item }) => (
+              <View style={[styles.entryRow, { borderColor: theme.border, backgroundColor: theme.surface + "D9" }]}>
+                <Text style={{ color: theme.textMuted, fontSize: 12 }}>{item.date}</Text>
+                <Text style={{ color: theme.text }}>{item.entry_text}</Text>
+              </View>
+            )}
+          />
+        ) : (
+          <View style={{ height: tabBarHeight + spacing.lg }} />
         )}
-      />
       </View>
     </ScreenBackground>
   );
@@ -101,14 +131,29 @@ const styles = StyleSheet.create({
   titleCard: { alignSelf: "stretch", paddingHorizontal: spacing.md, paddingVertical: spacing.md, marginBottom: spacing.md },
   title: { fontSize: fontSizes.title, fontFamily: fonts.heading },
   subtitle: { fontSize: fontSizes.label, marginTop: 2 },
+  // flex: 1 + justifyContent: "center" is what centers the write-in box
+  // vertically in the space between the title and the entries toggle.
+  writeSection: { flex: 1, justifyContent: "center" },
   input: {
     borderWidth: 1,
-    borderRadius: 12,
-    padding: spacing.md,
-    minHeight: 100,
+    borderRadius: 16,
+    padding: spacing.lg,
+    // Was 100 - the main focus of the whole app, so it gets real room
+    // instead of reading like an afterthought under a list of old entries.
+    minHeight: 260,
     textAlignVertical: "top",
     marginBottom: spacing.md,
-    fontSize: fontSizes.body,
+    fontSize: fontSizes.title,
+  },
+  disclosureRow: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
   },
   entryRow: {
     paddingVertical: spacing.sm,

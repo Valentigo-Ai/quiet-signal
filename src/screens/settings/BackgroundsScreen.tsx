@@ -104,7 +104,9 @@ export function BackgroundsScreen() {
           return (
             <View key={key} style={[styles.section, cardShadow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={styles.sectionHeader}>
-                <Image source={BACKGROUND_IMAGES[currentId].source} style={styles.currentThumb} />
+                <View style={styles.currentThumbWrap}>
+                  <Image source={BACKGROUND_IMAGES[currentId].source} resizeMode="cover" style={styles.currentThumb} />
+                </View>
                 <View style={{ flex: 1, marginLeft: spacing.md }}>
                   <Text style={{ color: theme.text, fontWeight: "700" }}>{BACKGROUND_SCREEN_LABELS[key]}</Text>
                   <Text style={{ color: theme.textMuted, fontSize: fontSizes.label }}>
@@ -155,13 +157,18 @@ export function BackgroundsScreen() {
                             {ids.map((id) => {
                               const locked = !isPro && !isFreeBackground(key, id);
                               return (
-                                <Pressable key={id} onPress={() => choosePhoto(key, id)} style={{ position: "relative" }}>
+                                <Pressable
+                                  key={id}
+                                  onPress={() => choosePhoto(key, id)}
+                                  style={[
+                                    styles.optionThumbWrap,
+                                    { borderColor: id === currentId ? theme.primary : "transparent" },
+                                  ]}
+                                >
                                   <Image
                                     source={BACKGROUND_IMAGES[id].source}
-                                    style={[
-                                      styles.optionThumb,
-                                      { borderColor: id === currentId ? theme.primary : "transparent" },
-                                    ]}
+                                    resizeMode="cover"
+                                    style={styles.optionThumb}
                                   />
                                   {locked && (
                                     <View style={styles.lockBadge}>
@@ -191,7 +198,29 @@ const styles = StyleSheet.create({
   upsell: { borderWidth: 1, borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.lg },
   section: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.md, marginBottom: spacing.md },
   sectionHeader: { flexDirection: "row", alignItems: "center" },
-  currentThumb: { width: 56, height: 56, borderRadius: radii.sm },
+  // The "white border" here isn't a rounding/clipping bug - every photo in
+  // assets/backgrounds/*.jpg has a solid white letterbox band baked into
+  // the file itself, top and bottom, averaging ~22% of the image's height
+  // (confirmed across all 63 files - misty-water.jpg, the one outsized
+  // outlier, has since been re-cropped at the source so it's no longer a
+  // special case). It's invisible on full-screen backgrounds because that
+  // view crops far more than 22% off a portrait photo stretched behind a
+  // whole screen, but these small, squarer preview crops don't crop nearly
+  // enough by default to clear it. Fix is the same as
+  // BackgroundTeaserGallery: a fixed-size overflow:hidden wrapper draws the
+  // actual crop window, and the Image inside it is oversized to 150% +
+  // centered (not a transform: scale - that scales an already-rendered
+  // raster and comes out visibly blurry; sizing the element itself keeps
+  // the cover-fit sampling straight from the full-res source).
+  currentThumbWrap: { position: "relative", width: 56, height: 56, borderRadius: radii.sm, overflow: "hidden" },
+  currentThumb: {
+    position: "absolute",
+    width: "150%",
+    height: "150%",
+    top: "-25%",
+    left: "-25%",
+    backgroundColor: "transparent",
+  },
   changeButton: { paddingHorizontal: spacing.md, borderRadius: radii.sm, justifyContent: "center" },
   categoryRow: {
     flexDirection: "row",
@@ -201,7 +230,15 @@ const styles = StyleSheet.create({
   },
   categoryLabel: { fontSize: 12, fontWeight: "700", letterSpacing: 0.5 },
   optionGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.xs },
-  optionThumb: { width: 90, height: 120, borderRadius: radii.sm, borderWidth: 3 },
+  optionThumbWrap: { position: "relative", width: 90, height: 120, borderRadius: radii.sm, overflow: "hidden", borderWidth: 3 },
+  optionThumb: {
+    position: "absolute",
+    width: "150%",
+    height: "150%",
+    top: "-25%",
+    left: "-25%",
+    backgroundColor: "transparent",
+  },
   lockBadge: {
     position: "absolute",
     top: 8,

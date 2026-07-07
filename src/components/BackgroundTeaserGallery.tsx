@@ -82,7 +82,15 @@ export function BackgroundTeaserGallery({ screenKey }: { screenKey: BackgroundSc
         initialNumToRender={6}
         maxToRenderPerBatch={6}
         windowSize={5}
-        removeClippedSubviews
+        // removeClippedSubviews was here as an Android memory optimization,
+        // but it's a known source of rendering bugs on other platforms -
+        // React Native's own docs flag it as "may have bugs" outside
+        // Android. On web specifically it looks like the culprit behind the
+        // white boxes around these thumbnails: it's an Android-specific
+        // clipping trick that react-native-web doesn't implement properly,
+        // so item containers were left showing a default background instead
+        // of resolving to transparent. Not worth the memory saving here
+        // given a photo strip this size (a few dozen items, not thousands).
         getItemLayout={(_, index) => ({ length: ITEM_STRIDE, offset: ITEM_STRIDE * index, index })}
         renderItem={({ item: id }) => {
           const locked = !isPro && !isFreeBackground(screenKey, id);
@@ -94,10 +102,11 @@ export function BackgroundTeaserGallery({ screenKey }: { screenKey: BackgroundSc
               accessibilityRole="button"
               accessibilityLabel={`${BACKGROUND_IMAGES[id].label}${locked ? ", Pro" : selected ? ", in use" : ""}`}
             >
-              <View style={styles.thumbWrap}>
+              <View style={[styles.thumbWrap, { borderColor: selected ? theme.primary : "transparent" }]}>
                 <Image
                   source={BACKGROUND_IMAGES[id].source}
-                  style={[styles.thumb, { borderColor: selected ? theme.primary : "transparent" }]}
+                  resizeMode="cover"
+                  style={styles.thumb}
                 />
                 {locked && (
                   <View style={styles.lockBadge}>
@@ -123,9 +132,42 @@ export function BackgroundTeaserGallery({ screenKey }: { screenKey: BackgroundSc
 
 const styles = StyleSheet.create({
   headerPill: { alignSelf: "flex-start", marginBottom: spacing.sm },
-  cardWrap: { width: CARD_WIDTH },
-  thumbWrap: { position: "relative" },
-  thumb: { width: CARD_WIDTH, height: CARD_HEIGHT, borderRadius: radii.md, borderWidth: 2 },
+  cardWrap: { width: CARD_WIDTH, backgroundColor: "transparent" },
+  // The real "white border" Richard was seeing here isn't a layout bug at
+  // all - every photo in assets/backgrounds/*.jpg has a solid white
+  // letterbox band baked into the file itself, top and bottom, averaging
+  // ~22% of the image's height each (confirmed by sampling all 63 files).
+  // It's invisible on full-screen backgrounds because ImageBackground's
+  // cover-fit crops far more than 22% off a portrait photo stretched behind
+  // a whole phone screen - but this card's squarer 108x144 crop only trims
+  // ~12.5% off each edge by default, leaving a chunk of that white band
+  // exposed. Fix is a deliberate extra zoom (below) that crops past the
+  // white before it ever reaches the visible window, applied to the inner
+  // Image only - this wrapper's fixed size + overflow:hidden is what
+  // actually defines the crop window the zoom gets clipped to.
+  thumbWrap: {
+    position: "relative",
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    borderRadius: radii.md,
+    overflow: "hidden",
+    backgroundColor: "transparent",
+    borderWidth: 2,
+  },
+  // 150% + centered negative offset (instead of a CSS transform: scale) is
+  // the same "zoom past the white band" idea, but done before the browser's
+  // cover-fit crop instead of after it. transform: scale enlarges an
+  // already-rendered 108x144 raster, which is a soft, blurry upscale - this
+  // way the Image element itself is 162x216, so cover-fit samples straight
+  // from the full-resolution source photo at that size and stays sharp.
+  thumb: {
+    position: "absolute",
+    width: "150%",
+    height: "150%",
+    top: "-25%",
+    left: "-25%",
+    backgroundColor: "transparent",
+  },
   cardLabel: {
     fontSize: 11,
     marginTop: 5,

@@ -96,7 +96,14 @@ export function ShareFlowScreen() {
   const keepPrivate = () => navigation.navigate("Main", { screen: "CheckIn" });
 
   const goAddRecipient = () => {
-    navigation.navigate("Main", { screen: "Settings", params: { screen: "Recipients" } });
+    // initial: false keeps SettingsHome underneath Recipients in the nested
+    // stack's history, instead of Recipients becoming the only screen ever
+    // pushed into that stack. Without it, native-stack has nothing to "go
+    // back" to, so no back button renders and Settings looks stuck/broken.
+    navigation.navigate("Main", {
+      screen: "Settings",
+      params: { screen: "Recipients", initial: false },
+    });
   };
 
   return (

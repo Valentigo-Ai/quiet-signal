@@ -10,7 +10,7 @@ import { ScreenBackground } from "@/components/ScreenBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { supabase } from "@/lib/supabase";
 import { downloadCheckinPdfReport } from "@/lib/pdfReport";
-import { spacing, fontSizes, radii, fonts } from "@/lib/theme";
+import { spacing, fontSizes, radii, fonts, cardShadow } from "@/lib/theme";
 
 // Minimum check-ins before a trend sentence is included in the PDF report.
 // Two points always look like a confident straight-line trend even when
@@ -192,12 +192,18 @@ export function HistoryScreen() {
           </TextOnPhoto>
         ) : (
           <>
-            {/* Gentle, neutral summary - a count, never a judgement. */}
+            {/* Gentle, neutral summary - a count, never a judgement. The
+                number gets its own big display line instead of being
+                embedded in a sentence - a long sentence set in the heading
+                font was wrapping awkwardly ("squashed" per Richard). */}
             <View style={[styles.summaryCard, { backgroundColor: theme.surface + "E6", borderColor: theme.border }]}>
-              <Text style={[styles.summaryCount, { color: theme.text }]}>
-                {checkins.length} check-in{checkins.length === 1 ? "" : "s"} in the last {range} days
-              </Text>
-              <Text style={{ color: theme.textMuted, marginTop: 4 }}>
+              <View style={styles.summaryTopRow}>
+                <Text style={[styles.summaryNumber, { color: theme.primary }]}>{checkins.length}</Text>
+                <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>
+                  check-in{checkins.length === 1 ? "" : "s"}{"\n"}in the last {range} days
+                </Text>
+              </View>
+              <Text style={[styles.summaryKindNote, { color: theme.textMuted }]}>
                 Every one of these is a moment you took for yourself.
               </Text>
             </View>
@@ -207,18 +213,21 @@ export function HistoryScreen() {
               disabled={downloading}
               style={[styles.exportRow, { borderColor: theme.border, backgroundColor: theme.surface + "E6", opacity: downloading ? 0.6 : 1 }]}
             >
-              {downloading ? (
-                <ActivityIndicator color={theme.primary} />
-              ) : (
-                <>
-                  <Text style={{ color: theme.primary, fontWeight: "600" }}>
-                    {isPro ? "Download PDF report" : "Download PDF report (Pro)"}
-                  </Text>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
-                    Trends and charts live in your report - look when you choose to.
-                  </Text>
-                </>
-              )}
+              <View style={[styles.exportIconWrap, { backgroundColor: theme.primarySoft }]}>
+                {downloading ? (
+                  <ActivityIndicator color={theme.primary} size="small" />
+                ) : (
+                  <Ionicons name="download-outline" size={20} color={theme.primary} />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: theme.primary, fontWeight: "600" }}>
+                  {isPro ? "Download PDF report" : "Download PDF report (Pro)"}
+                </Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
+                  Trends and charts live in your report - look when you choose to.
+                </Text>
+              </View>
             </Pressable>
 
             <Pressable
@@ -240,9 +249,10 @@ export function HistoryScreen() {
 
             {showList ? (
               <FlatList
+                style={{ flex: 1 }}
                 data={[...checkins].reverse()}
                 keyExtractor={(c) => c.id}
-                contentContainerStyle={{ paddingBottom: tabBarHeight + spacing.lg }}
+                contentContainerStyle={{ paddingBottom: tabBarHeight + spacing.xl }}
                 renderItem={({ item }) => (
                   <View style={[styles.row, { borderColor: theme.border, backgroundColor: theme.surface + "E6" }]}>
                     <Text style={{ color: theme.text, fontWeight: "600" }}>{item.date}</Text>
@@ -254,9 +264,16 @@ export function HistoryScreen() {
                 )}
               />
             ) : (
-              // Bottom padding so the disclosure row above isn't crowded by
-              // the floating tab bar when the list is collapsed.
-              <View style={{ height: tabBarHeight }} />
+              // flex: 1 (not a fixed height) is the actual fix for the hard
+              // white rectangle Richard saw at the bottom of this screen:
+              // with no flexible child anywhere in this column, Android
+              // wasn't resolving the ScreenBackground photo to the screen's
+              // real full height, so it hard-cropped a bit short and the
+              // native white behind it showed through below the crop line.
+              // A genuine flex:1 child forces the whole column - and the
+              // photo behind it - to resolve to true full height. minHeight
+              // keeps the disclosure row clear of the floating tab bar.
+              <View style={{ flex: 1, minHeight: tabBarHeight + spacing.xl }} />
             )}
           </>
         )}
@@ -268,31 +285,59 @@ export function HistoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg },
   title: { fontSize: fontSizes.title, fontFamily: fonts.heading },
-  rangeRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
-  rangeChip: { paddingHorizontal: spacing.md, borderRadius: 20, justifyContent: "center" },
+  // Was spacing.md/spacing.sm throughout below - everything sat right on
+  // top of everything else. Richard's "cramped together" note, July 2026:
+  // widened the gaps between title/chips/card/button/toggle.
+  rangeRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
+  rangeChip: {
+    paddingHorizontal: spacing.md,
+    borderRadius: 20,
+    justifyContent: "center",
+    ...cardShadow,
+  },
   summaryCard: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...cardShadow,
   },
-  summaryCount: { fontSize: fontSizes.title, fontFamily: fonts.heading },
+  // Big-number treatment - was one long sentence set entirely in the
+  // heading font, which wrapped awkwardly ("squashed", per Richard). The
+  // count now reads like a real stat, the way Calm/Headspace-tier apps
+  // present numbers, with the sentence broken out as a plain label beside it.
+  summaryTopRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm },
+  summaryNumber: { fontSize: 52, fontFamily: fonts.heading, lineHeight: 52 },
+  summaryLabel: { fontSize: fontSizes.label, marginBottom: 4, lineHeight: 18 },
+  summaryKindNote: { marginTop: spacing.sm, fontSize: fontSizes.label },
   exportRow: {
     borderWidth: 1,
     borderRadius: radii.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: spacing.md,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+    ...cardShadow,
+  },
+  exportIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   disclosureRow: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    ...cardShadow,
   },
   row: {
     paddingVertical: spacing.sm,
