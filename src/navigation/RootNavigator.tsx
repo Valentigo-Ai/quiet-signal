@@ -44,8 +44,13 @@ const TAB_ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inacti
 };
 
 function OnboardingNavigator({ initialRouteName }: { initialRouteName?: string }) {
+  const { theme } = useAppTheme();
+
   return (
-    <OnboardingStack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+    <OnboardingStack.Navigator
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.background } }}
+      initialRouteName={initialRouteName}
+    >
       <OnboardingStack.Screen name="Welcome" component={WelcomeScreen} />
       <OnboardingStack.Screen name="WhatAreYouDealingWith" component={WhatAreYouDealingWithScreen} />
       <OnboardingStack.Screen name="Consent" component={ConsentScreen} />
@@ -57,8 +62,23 @@ function OnboardingNavigator({ initialRouteName }: { initialRouteName?: string }
 }
 
 function SettingsNavigator() {
+  const { theme } = useAppTheme();
+
   return (
-    <SettingsStack.Navigator>
+    <SettingsStack.Navigator
+      screenOptions={{
+        contentStyle: { backgroundColor: theme.background },
+        // These screens keep their header (headerShown defaults to true on
+        // native-stack), and a header is real UI, not "content" - contentStyle
+        // above doesn't touch it. Left unstyled, native-stack's own default is
+        // a plain white bar with black text, which is the other place the
+        // rebrand was still showing through as white.
+        headerStyle: { backgroundColor: theme.surface },
+        headerTintColor: theme.text,
+        headerTitleStyle: { color: theme.text },
+        headerShadowVisible: false,
+      }}
+    >
       <SettingsStack.Screen name="SettingsHome" component={SettingsScreen} options={{ title: "Settings" }} />
       <SettingsStack.Screen name="Recipients" component={RecipientsScreen} options={{ title: "Shared with" }} />
       <SettingsStack.Screen name="Backgrounds" component={BackgroundsScreen} options={{ title: "Backgrounds" }} />
@@ -96,6 +116,7 @@ function MainNavigator() {
           borderTopWidth: 0,
           elevation: 0,
         },
+        sceneContainerStyle: { backgroundColor: theme.background },
       })}
     >
       <MainTabs.Screen name="CheckIn" component={CheckInScreen} options={{ title: "Today" }} />
@@ -123,6 +144,7 @@ function MainNavigator() {
 
 export function RootNavigator() {
   const { session, loading, needsConsent } = useAuth();
+  const { theme } = useAppTheme();
 
   if (loading) return null; // could add a calm splash/loading state here
 
@@ -135,7 +157,13 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      {/* contentStyle here (and on the nested navigators below) is the
+          belt-and-braces fix for the white-flash bug: react-navigation's
+          own screen containers have no background color by default, so any
+          gap - before a screen's photo loads, or on web where the browser's
+          default is white - showed through as white instead of the brand's
+          midnight background. */}
+      <RootStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.background } }}>
         {showOnboarding ? (
           <RootStack.Screen name="Onboarding">
             {() => <OnboardingNavigator initialRouteName={session ? "WhatAreYouDealingWith" : "Welcome"} />}
@@ -146,12 +174,30 @@ export function RootNavigator() {
             <RootStack.Screen
               name="ShareFlow"
               component={ShareFlowScreen}
-              options={{ headerShown: true, title: "Share" }}
+              options={{
+                headerShown: true,
+                title: "Share",
+                // Same header-theming fix as SettingsNavigator - these two
+                // screens turn the header back on, so they need their own
+                // colours instead of native-stack's default white bar.
+                headerStyle: { backgroundColor: theme.surface },
+                headerTintColor: theme.text,
+                headerTitleStyle: { color: theme.text },
+                headerShadowVisible: false,
+              }}
             />
             <RootStack.Screen
               name="Upgrade"
               component={UpgradeScreen}
-              options={{ headerShown: true, title: "Quiet Signal Pro", presentation: "modal" }}
+              options={{
+                headerShown: true,
+                title: "Quiet Signal Pro",
+                presentation: "modal",
+                headerStyle: { backgroundColor: theme.surface },
+                headerTintColor: theme.text,
+                headerTitleStyle: { color: theme.text },
+                headerShadowVisible: false,
+              }}
             />
           </>
         )}

@@ -40,7 +40,15 @@ export function ScreenBackground({
   }
 
   return (
-    <ImageBackground source={source} style={styles.image} resizeMode="cover">
+    // backgroundColor fallback: without this, any gap before the photo
+    // loads (or a load failure) falls through to the browser/OS default -
+    // white - instead of the brand's midnight background. Belt-and-braces;
+    // doesn't change how the photo itself looks once it's in.
+    <ImageBackground
+      source={source}
+      style={[styles.image, { backgroundColor: theme.background }]}
+      resizeMode="cover"
+    >
       <SafeAreaView style={styles.safeArea} edges={edges}>
         {children}
       </SafeAreaView>

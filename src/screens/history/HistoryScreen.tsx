@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, Alert, ActivityIndicator } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -51,6 +52,12 @@ export function HistoryScreen() {
   const [range, setRange] = useState<(typeof RANGES)[number]>(7);
   const [checkins, setCheckins] = useState<Checkin[]>([]);
   const [downloading, setDownloading] = useState(false);
+  // The day-by-day list is collapsed by default (Richard's request, July
+  // 2026): seeing every logged day laid out on screen at once can itself
+  // raise anxiety, even with no chart/trend language attached. The neutral
+  // summary card is always visible; the actual entries are opt-in only, one
+  // tap away, so the choice to look is always the person's, not the app's.
+  const [showList, setShowList] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -214,20 +221,43 @@ export function HistoryScreen() {
               )}
             </Pressable>
 
-            <FlatList
-              data={[...checkins].reverse()}
-              keyExtractor={(c) => c.id}
-              contentContainerStyle={{ paddingBottom: tabBarHeight + spacing.lg }}
-              renderItem={({ item }) => (
-                <View style={[styles.row, { borderColor: theme.border, backgroundColor: theme.surface + "E6" }]}>
-                  <Text style={{ color: theme.text, fontWeight: "600" }}>{item.date}</Text>
-                  <Text style={{ color: theme.textMuted }}>
-                    Pain {item.pain_score} · Anxiety {item.anxiety_score} · Energy {item.energy_score}
-                  </Text>
-                  {item.note ? <Text style={{ color: theme.textMuted, fontStyle: "italic" }}>{item.note}</Text> : null}
-                </View>
-              )}
-            />
+            <Pressable
+              onPress={() => setShowList((v) => !v)}
+              style={[
+                styles.disclosureRow,
+                { borderColor: theme.border, backgroundColor: theme.surface + "E6", minHeight: theme.minTouchTarget },
+              ]}
+            >
+              <Text style={{ color: theme.text, fontWeight: "600" }}>
+                {showList ? "Hide the day-by-day list" : "Show the day-by-day list"}
+              </Text>
+              <Ionicons
+                name={showList ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={theme.textMuted}
+              />
+            </Pressable>
+
+            {showList ? (
+              <FlatList
+                data={[...checkins].reverse()}
+                keyExtractor={(c) => c.id}
+                contentContainerStyle={{ paddingBottom: tabBarHeight + spacing.lg }}
+                renderItem={({ item }) => (
+                  <View style={[styles.row, { borderColor: theme.border, backgroundColor: theme.surface + "E6" }]}>
+                    <Text style={{ color: theme.text, fontWeight: "600" }}>{item.date}</Text>
+                    <Text style={{ color: theme.textMuted }}>
+                      Pain {item.pain_score} · Anxiety {item.anxiety_score} · Energy {item.energy_score}
+                    </Text>
+                    {item.note ? <Text style={{ color: theme.textMuted, fontStyle: "italic" }}>{item.note}</Text> : null}
+                  </View>
+                )}
+              />
+            ) : (
+              // Bottom padding so the disclosure row above isn't crowded by
+              // the floating tab bar when the list is collapsed.
+              <View style={{ height: tabBarHeight }} />
+            )}
           </>
         )}
       </View>
@@ -253,6 +283,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     alignItems: "center",
     marginBottom: spacing.md,
+  },
+  disclosureRow: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
   },
   row: {
     paddingVertical: spacing.sm,
