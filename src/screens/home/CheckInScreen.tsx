@@ -6,9 +6,8 @@ import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { CrisisBanner } from "@/components/CrisisBanner";
 import { ScaleInput } from "@/components/ScaleInput";
-import { ScreenBackground } from "@/components/ScreenBackground";
+import { ScreenVideoBackground } from "@/components/ScreenVideoBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
-import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { supabase } from "@/lib/supabase";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 import { useCrisisCheck } from "@/lib/useCrisisCheck";
@@ -50,7 +49,6 @@ function getGreeting(): { greeting: string; question: string } {
 // returning user - three tap-scales, optional note, one button.
 export function CheckInScreen() {
   const { theme } = useAppTheme();
-  const { getSource } = useBackgroundPrefs();
   const navigation = useNavigation<any>();
   const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
   useCrisisCheck(); // Flow D - runs quietly on every home screen open
@@ -106,7 +104,7 @@ export function CheckInScreen() {
   };
 
   return (
-    <ScreenBackground source={getSource("checkin")}>
+    <ScreenVideoBackground>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: tabBarHeight + spacing.lg }}>
         <CrisisBanner />
         <TextOnPhoto style={{ marginBottom: spacing.lg }}>
@@ -154,9 +152,18 @@ export function CheckInScreen() {
             self-selected destination; the Upgrade screen now shows a small
             visual preview too, since selling Pro is that screen's actual
             job. Don't re-add a gallery here without revisiting that
-            reasoning. */}
+            reasoning.
+
+            Follow-up (also July 2026): this screen's background is now a
+            fixed looping video (see ScreenVideoBackground) instead of one of
+            the 63 library photos - Richard's own lake footage, graded to
+            match. It's deliberately NOT one of the choices in Settings >
+            Backgrounds; this screen stays a no-choices zone. The stored
+            "checkin" entry in BackgroundPrefsContext is simply unused now -
+            harmless, not worth ripping out since other code still reads/
+            writes it uniformly across screens. */}
       </ScrollView>
-    </ScreenBackground>
+    </ScreenVideoBackground>
   );
 }
 
