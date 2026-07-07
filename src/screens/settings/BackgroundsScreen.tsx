@@ -15,8 +15,20 @@ import {
   BackgroundImageId,
   BackgroundScreenKey,
   isFreeBackground,
+  FREE_BACKGROUND_IDS,
+  DEFAULT_BACKGROUNDS,
 } from "@/constants/backgroundLibrary";
 import { spacing, fontSizes, radii, cardShadow } from "@/lib/theme";
+
+// The full free set for a given screen: the three signature free photos plus
+// that screen's own default (which for a few screens - share, journal,
+// crisis, recipients, login - isn't one of the three, so it'd otherwise be
+// invisible as "free" unless someone happened to scroll to it in its
+// category). De-duped since several screens' defaults already are one of
+// the three.
+function freeIdsForScreen(key: BackgroundScreenKey): BackgroundImageId[] {
+  return Array.from(new Set<BackgroundImageId>([...FREE_BACKGROUND_IDS, DEFAULT_BACKGROUNDS[key]]));
+}
 
 const SCREEN_KEYS: BackgroundScreenKey[] = [
   "welcome",
@@ -128,6 +140,42 @@ export function BackgroundsScreen() {
 
               {isOpen && (
                 <View style={{ marginTop: spacing.md }}>
+                  {/* One place to see every free option for this screen, up
+                      front - no need to open a category and spot the "Free"
+                      badge among locked photos. This is exactly the same set
+                      isFreeBackground already treats as free for taps: the
+                      three signature photos plus this screen's own default.
+                      Pro users see none of this - once everything's unlocked,
+                      "free" isn't a meaningful distinction any more, so it'd
+                      just be visual noise ahead of the real library. */}
+                  {!isPro && (
+                    <View style={{ marginBottom: spacing.md }}>
+                      <Text style={[styles.categoryLabel, { color: theme.textMuted, marginBottom: spacing.xs }]}>
+                        FREE IMAGES ({freeIdsForScreen(key).length})
+                      </Text>
+                      <View style={styles.optionGrid}>
+                        {freeIdsForScreen(key).map((id) => (
+                          <Pressable
+                            key={id}
+                            onPress={() => choosePhoto(key, id)}
+                            style={[
+                              styles.optionThumbWrap,
+                              { borderColor: id === currentId ? theme.primary : "transparent" },
+                            ]}
+                          >
+                            <Image
+                              source={BACKGROUND_IMAGES[id].source}
+                              resizeMode="cover"
+                              style={styles.optionThumb}
+                            />
+                            <View style={styles.freeBadge}>
+                              <Text style={styles.freeBadgeText}>Free</Text>
+                            </View>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                  )}
                   <Text style={{ color: theme.textMuted, fontSize: fontSizes.label, marginBottom: spacing.sm }}>
                     {Object.keys(BACKGROUND_IMAGES).length} photos to choose from
                   </Text>
@@ -155,7 +203,8 @@ export function BackgroundsScreen() {
                         {isCategoryOpen && (
                           <View style={styles.optionGrid}>
                             {ids.map((id) => {
-                              const locked = !isPro && !isFreeBackground(key, id);
+                              const free = isFreeBackground(key, id);
+                              const locked = !isPro && !free;
                               return (
                                 <Pressable
                                   key={id}
@@ -173,6 +222,20 @@ export function BackgroundsScreen() {
                                   {locked && (
                                     <View style={styles.lockBadge}>
                                       <Ionicons name="lock-closed" size={11} color="#EEF1FC" />
+                                    </View>
+                                  )}
+                                  {/* Free tier only needs to see this - once someone
+                                      is Pro, everything's unlocked and the distinction
+                                      is meaningless. Marks exactly the same set
+                                      isFreeBackground already unlocks for taps: the
+                                      three signature free photos plus this screen's
+                                      own default (per Richard, so free users can see
+                                      at a glance what's actually free vs Pro-only,
+                                      instead of only inferring it from the absence of
+                                      a lock icon). */}
+                                  {!isPro && free && (
+                                    <View style={styles.freeBadge}>
+                                      <Text style={styles.freeBadgeText}>Free</Text>
                                     </View>
                                   )}
                                 </Pressable>
@@ -250,4 +313,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(11,17,40,0.75)",
   },
+  freeBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: "rgba(243,199,124,0.92)", // theme.primary (gold), opaque enough to read on any photo
+  },
+  freeBadgeText: { fontSize: 10, fontWeight: "700", color: "#3B2508" }, // matches theme.onPrimary
 });
