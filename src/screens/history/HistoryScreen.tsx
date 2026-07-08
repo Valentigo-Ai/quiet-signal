@@ -257,7 +257,7 @@ export function HistoryScreen() {
                   <View style={[styles.row, { borderColor: theme.border, backgroundColor: theme.surface + "E6" }]}>
                     <Text style={{ color: theme.text, fontWeight: "600" }}>{item.date}</Text>
                     <Text style={{ color: theme.textMuted }}>
-                      Pain {item.pain_score} · Anxiety {item.anxiety_score} · Energy {item.energy_score}
+                      Pain {item.pain_score} · Anxiety/PTSD {item.anxiety_score} · Energy {item.energy_score}
                     </Text>
                     {item.note ? <Text style={{ color: theme.textMuted, fontStyle: "italic" }}>{item.note}</Text> : null}
                   </View>

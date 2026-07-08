@@ -69,7 +69,7 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
         ${chartSvg}
         <table>
           <thead>
-            <tr><th>Date</th><th>Pain</th><th>Anxiety</th><th>Energy</th><th>Note</th></tr>
+            <tr><th>Date</th><th>Pain</th><th>Anxiety/PTSD</th><th>Energy</th><th>Note</th></tr>
           </thead>
           <tbody>${tableRows}</tbody>
         </table>
@@ -115,7 +115,7 @@ function buildChartSvg(rows: ReportRow[]) {
       </svg>
       <div class="legend">
         <span><span class="dot" style="background:#B3413A"></span>Pain (solid)</span>
-        <span><span class="dot" style="background:#3E4C8F"></span>Anxiety (dashed)</span>
+        <span><span class="dot" style="background:#3E4C8F"></span>Anxiety/PTSD (dashed)</span>
         <span><span class="dot" style="background:#2F6B55"></span>Energy (dotted)</span>
       </div>
       <div class="legend-dates"><span>${escapeHtml(rows[0].date)}</span><span>${escapeHtml(rows[rows.length - 1].date)}</span></div>
