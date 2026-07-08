@@ -32,7 +32,6 @@ function freeIdsForScreen(key: BackgroundScreenKey): BackgroundImageId[] {
 
 const SCREEN_KEYS: BackgroundScreenKey[] = [
   "welcome",
-  "checkin",
   "share",
   "history",
   "journal",

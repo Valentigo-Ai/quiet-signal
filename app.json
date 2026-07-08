@@ -41,7 +41,8 @@
           "barStyle": "light",
           "enforceContrast": false
         }
-      ]
+      ],
+      "expo-video"
     ],
     "extra": {
       "eas": {

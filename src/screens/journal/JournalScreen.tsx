@@ -71,7 +71,7 @@ export function JournalScreen() {
         <TextOnPhoto style={styles.titleCard}>
           <Text style={[styles.title, { color: theme.text }]}>Journal</Text>
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-            Private by default - just for you, unless you choose otherwise.
+            Private, always - just for you. Never shared, only scanned for your safety.
           </Text>
         </TextOnPhoto>
 

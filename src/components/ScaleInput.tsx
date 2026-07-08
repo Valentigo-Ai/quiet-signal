@@ -48,6 +48,8 @@ export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
                   { color: selected ? theme.onPrimary : theme.text },
                 ]}
                 numberOfLines={2}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
               >
                 {text}
               </Text>

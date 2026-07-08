@@ -30,7 +30,7 @@ const BENEFITS = [
   },
   {
     title: "Extra backgrounds",
-    body: `Choose any of the ${Object.keys(BACKGROUND_IMAGES).length} photos in the library for your Welcome, Check-in, and Share screens, not just the defaults.`,
+    body: `Choose any of the ${Object.keys(BACKGROUND_IMAGES).length} photos in the library for your Welcome and Share screens, not just the defaults.`,
   },
 ];
 

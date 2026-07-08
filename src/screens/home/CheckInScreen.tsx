@@ -15,7 +15,7 @@ import { useCrisisCheck } from "@/lib/useCrisisCheck";
 const PAIN_LABELS: [string, string, string, string, string] = [
   "None",
   "Mild",
-  "Moderate",
+  "Medium",
   "High",
   "Severe",
 ];
