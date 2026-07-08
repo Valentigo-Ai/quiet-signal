@@ -11,28 +11,7 @@ import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { supabase } from "@/lib/supabase";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 import { useCrisisCheck } from "@/lib/useCrisisCheck";
-
-const PAIN_LABELS: [string, string, string, string, string] = [
-  "None",
-  "Mild",
-  "Medium",
-  "High",
-  "Severe",
-];
-const ANXIETY_LABELS: [string, string, string, string, string] = [
-  "Calm",
-  "A little on edge",
-  "Anxious",
-  "Very anxious",
-  "Overwhelmed",
-];
-const ENERGY_LABELS: [string, string, string, string, string] = [
-  "Very low",
-  "Low",
-  "Okay",
-  "Good",
-  "Great",
-];
+import { PAIN_LABELS, ANXIETY_LABELS, ENERGY_LABELS } from "@/constants/scaleLabels";
 
 // Time-aware greeting (July 2026, matches the website's hero mockup):
 // "Good morning/afternoon/evening" plus a day/tonight-phrased question.

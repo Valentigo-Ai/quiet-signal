@@ -18,8 +18,8 @@ export type ReportRow = {
 // invited more scrutiny than the feature itself warrants. A PDF someone can
 // hand to anyone they choose (a doctor, a partner, themselves) is the same
 // low-risk personal-diary export either way; this only changes the label.
-function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: ReportRow[] }) {
-  const { rangeLabel, summaryText, rows } = opts;
+function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: ReportRow[]; periodLabel?: string }) {
+  const { rangeLabel, summaryText, rows, periodLabel = "Date" } = opts;
   const generatedAt = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
   const tableRows = rows
@@ -69,7 +69,7 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
         ${chartSvg}
         <table>
           <thead>
-            <tr><th>Date</th><th>Pain</th><th>Anxiety/PTSD</th><th>Energy</th><th>Note</th></tr>
+            <tr><th>${periodLabel}</th><th>Pain</th><th>Anxiety/PTSD</th><th>Energy</th><th>Note</th></tr>
           </thead>
           <tbody>${tableRows}</tbody>
         </table>
@@ -126,7 +126,7 @@ function buildChartSvg(rows: ReportRow[]) {
 // already synced to the phone) and hands it to the OS share sheet, so
 // "share with whoever you want" covers email, Files, WhatsApp, AirDrop,
 // printing, or just saving it - whatever the person already has installed.
-export async function downloadCheckinPdfReport(opts: { rangeLabel: string; summaryText: string; rows: ReportRow[] }) {
+export async function downloadCheckinPdfReport(opts: { rangeLabel: string; summaryText: string; rows: ReportRow[]; periodLabel?: string }) {
   const html = buildReportHtml(opts);
 
   // expo-print's printToFileAsync (native PDF generation) isn't available

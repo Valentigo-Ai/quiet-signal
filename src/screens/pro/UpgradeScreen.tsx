@@ -26,7 +26,7 @@ const BENEFITS = [
     // Matches the exact copy on the History screen's own download row, so
     // the messaging is consistent wherever this Pro feature is mentioned:
     // trends/charts only ever live in the PDF, viewed by choice.
-    body: "See 90-day trends (not just 7/30) and download a full PDF report you can share with whoever you choose. Trends and charts live in your report - look when you choose to.",
+    body: "See 60 and 90-day trends (not just 7/30) and download a full PDF report you can share with whoever you choose. Longer views summarise week by week, not day by day - trends and charts live in your report, look when you choose to.",
   },
   {
     title: "Extra backgrounds",
@@ -204,7 +204,23 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     overflow: "hidden",
   },
-  previewThumb: { width: "100%", height: "100%" },
+  // Oversized + centered rather than a plain 100%/100% cover fit - same fix
+  // as BackgroundsScreen's currentThumb/optionThumb. Every source photo in
+  // assets/backgrounds has a white letterbox band baked into the file
+  // top/bottom (~22% of its height); a full-screen background crops enough
+  // to clear it automatically, but this row's small 3:4 preview boxes don't
+  // crop nearly enough by default, so the band shows. Sizing the element
+  // itself to 150% (not a transform: scale, which would blur an
+  // already-rendered raster) keeps the crop sampling straight from the
+  // full-res source.
+  previewThumb: {
+    position: "absolute",
+    width: "150%",
+    height: "150%",
+    top: "-25%",
+    left: "-25%",
+    backgroundColor: "transparent",
+  },
   previewLock: {
     position: "absolute",
     top: 4,

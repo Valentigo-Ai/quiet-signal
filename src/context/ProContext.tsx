@@ -19,7 +19,7 @@ const PRO_STORAGE_KEY = "quiet-signal:is-pro";
 
 export const FREE_MAX_RECIPIENTS = 1;
 export const FREE_HISTORY_RANGES = [7, 30] as const;
-export const PRO_ONLY_HISTORY_RANGES = [90] as const;
+export const PRO_ONLY_HISTORY_RANGES = [60, 90] as const;
 
 // Regional pricing lives in constants/proPricing.ts, keyed by the same
 // CountryCode used for crisis-resource localization (see getProPlans there
