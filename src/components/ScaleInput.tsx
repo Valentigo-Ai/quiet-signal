@@ -16,6 +16,17 @@ type Props = {
   scaleLabels: [string, string, string, string, string];
 };
 
+// Some single-word labels ("Overwhelmed") are too long to fit this pill's
+// width on one line, and with no space in the word to wrap at, they broke
+// mid-syllable ("Overwhe" / "lmed" - confirmed on-device, adjustsFontSizeToFit
+// below wasn't reliably shrinking it far enough). This forces a clean
+// two-line split for DISPLAY ONLY - the actual label text (reused in the
+// share summary, PDF export, and weekly history rows) stays the plain,
+// unsplit word; only what's rendered on the button itself changes.
+const DISPLAY_LINE_BREAKS: Record<string, string> = {
+  Overwhelmed: "Over\nwhelmed",
+};
+
 export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
   const { theme } = useAppTheme();
 
@@ -51,7 +62,7 @@ export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
                 adjustsFontSizeToFit
                 minimumFontScale={0.75}
               >
-                {text}
+                {DISPLAY_LINE_BREAKS[text] ?? text}
               </Text>
             </Pressable>
           );

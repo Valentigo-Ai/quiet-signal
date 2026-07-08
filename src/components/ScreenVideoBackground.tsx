@@ -1,5 +1,5 @@
-import React from "react";
-import { View, StyleSheet } from "react-native";
+import React, { useEffect } from "react";
+import { View, StyleSheet, AppState } from "react-native";
 import { SafeAreaView, Edge } from "react-native-safe-area-context";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -35,6 +35,30 @@ export function ScreenVideoBackground({
     p.muted = true;
     p.play();
   });
+
+  // Defensive watchdog for the "cuts to black after a while" report -
+  // a long-running looping video's native decoder/surface can stall or get
+  // suspended (backgrounding the app is one common trigger; Expo Go's own
+  // playback pipeline being less robust than a standalone build over very
+  // long sessions is another - this doesn't try to tell those apart). Costs
+  // nothing when playback is fine; silently nudges it back on when it's
+  // stopped instead of leaving a permanently black screen.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!player.playing) {
+        player.play();
+      }
+    }, 15000);
+    const appStateSub = AppState.addEventListener("change", (state) => {
+      if (state === "active" && !player.playing) {
+        player.play();
+      }
+    });
+    return () => {
+      clearInterval(interval);
+      appStateSub.remove();
+    };
+  }, [player]);
 
   if (highContrast) {
     return (
