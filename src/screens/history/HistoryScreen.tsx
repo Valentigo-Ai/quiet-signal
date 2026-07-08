@@ -164,7 +164,12 @@ export function HistoryScreen() {
     const last = checkins[checkins.length - 1];
     const pain = describeTrend(first.pain_score, last.pain_score);
     const anxiety = describeTrend(first.anxiety_score, last.anxiety_score);
-    const energy = describeTrend(first.energy_score, last.energy_score);
+    // energy_score now runs 4=Very low...0=Great (flipped July 2026 to match
+    // pain/anxiety's "4 = concerning end"), but the wording below still
+    // needs "up" to mean more energy, not a bigger raw number - so the
+    // score is un-flipped (4 - x) before comparing, same as feeding in the
+    // actual amount of energy rather than the stored severity number.
+    const energy = describeTrend(4 - first.energy_score, 4 - last.energy_score);
 
     const paceWord = (dir: "up" | "down" | "steady") =>
       dir === "steady" ? "stayed steady" : dir === "up" ? "crept up a bit" : "eased off a bit";

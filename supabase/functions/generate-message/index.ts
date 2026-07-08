@@ -2,15 +2,20 @@
 // Rule-based, template-only status message generator.
 // No AI vendor call - deterministic mapping from scores to plain-language copy.
 // Scale: 0=none/very low, 1=mild, 2=moderate, 3=high, 4=severe (pain/anxiety)
-//        0=very low, 1=low, 2=okay, 3=good, 4=great (energy)
+//        0=great, 1=good, 2=okay, 3=low, 4=very low (energy)
+// Energy's direction was flipped July 2026 to match pain/anxiety (4 always
+// = the concerning end, instead of energy running the opposite way) - the
+// thresholds below were updated to match; this function reads live scores
+// from the checkins table, so it must agree with whatever direction that
+// column actually stores today, not the pre-flip convention.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 function generateMessage(pain: number, anxiety: number, energy: number): string {
   const highPain = pain >= 3;
   const highAnxiety = anxiety >= 3;
-  const lowEnergy = energy <= 1;
-  const goodEnergy = energy >= 3;
+  const lowEnergy = energy >= 3;
+  const goodEnergy = energy <= 1;
   const lowPain = pain <= 1;
   const lowAnxiety = anxiety <= 1;
 
