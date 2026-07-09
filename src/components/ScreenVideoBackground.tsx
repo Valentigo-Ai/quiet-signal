@@ -40,22 +40,52 @@ export function ScreenVideoBackground({
   // a long-running looping video's native decoder/surface can stall or get
   // suspended (backgrounding the app is one common trigger; Expo Go's own
   // playback pipeline being less robust than a standalone build over very
-  // long sessions is another - this doesn't try to tell those apart). Costs
-  // nothing when playback is fine; silently nudges it back on when it's
-  // stopped instead of leaving a permanently black screen.
+  // long sessions is another - this doesn't try to tell those apart).
+  //
+  // 9 July 2026 update: the original version of this watchdog only checked
+  // `!player.playing`, which cannot catch a stalled decoder/surface that
+  // still reports playing:true while the frame is actually frozen/black -
+  // expo-video has known reports of exactly this (status can also flip to
+  // "error" independently of the playing flag). This version additionally
+  // tracks currentTime across ticks to detect "playing but not advancing",
+  // and listens for a statusChange to "error". Recovery uses replace() to
+  // reload the source rather than just play(), since play() is a no-op if
+  // the player already believes it is playing. Still not confirmed against
+  // a real device - see PROJECT-STATUS.md.
   useEffect(() => {
+    let lastCheckedTime = player.currentTime;
+
+    const recover = () => {
+      player.replace(LAKE_LOOP);
+      player.play();
+    };
+
     const interval = setInterval(() => {
       if (!player.playing) {
         player.play();
+        return;
       }
+      if (player.currentTime === lastCheckedTime) {
+        recover();
+      }
+      lastCheckedTime = player.currentTime;
     }, 15000);
+
+    const errorSub = player.addListener("statusChange", ({ status }) => {
+      if (status === "error") {
+        recover();
+      }
+    });
+
     const appStateSub = AppState.addEventListener("change", (state) => {
       if (state === "active" && !player.playing) {
         player.play();
       }
     });
+
     return () => {
       clearInterval(interval);
+      errorSub.remove();
       appStateSub.remove();
     };
   }, [player]);
