@@ -68,6 +68,14 @@ export function UpgradeScreen() {
       // ConfettiBurst - because someone just paid for the app and a plain
       // system Alert undersold that. Dismissing takes them back to Settings.
       setShowWelcome(true);
+    } catch (e) {
+      // purchasePro() resolves quietly (no throw) if the user just cancels
+      // the store's payment sheet - so reaching here means a real failure
+      // (network, misconfigured product, etc.), worth telling them about.
+      Alert.alert(
+        "Something went wrong",
+        "We couldn't complete your purchase. Please check your connection and try again."
+      );
     } finally {
       setBusy(false);
     }
