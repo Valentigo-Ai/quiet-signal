@@ -4,6 +4,51 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://bzczbsrtbnqiydscvnak.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_p1AIZeAJvoR-ZYvdwSZTGA_R7h6p6n0",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "REPLACE_WITH_REVENUECAT_IOS_KEY",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "REPLACE_WITH_REVENUECAT_ANDROID_KEY"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://bzczbsrtbnqiydscvnak.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_p1AIZeAJvoR-ZYvdwSZTGA_R7h6p6n0",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "REPLACE_WITH_REVENUECAT_IOS_KEY",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "REPLACE_WITH_REVENUECAT_ANDROID_KEY"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://bzczbsrtbnqiydscvnak.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_p1AIZeAJvoR-ZYvdwSZTGA_R7h6p6n0",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "REPLACE_WITH_REVENUECAT_IOS_KEY",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "REPLACE_WITH_REVENUECAT_ANDROID_KEY"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
+{
+  "cli": {
+    "version": ">= 13.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
     "preview": {
       "distribution": "internal",
       "android": {

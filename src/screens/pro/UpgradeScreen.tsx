@@ -68,6 +68,14 @@ export function UpgradeScreen() {
       // ConfettiBurst - because someone just paid for the app and a plain
       // system Alert undersold that. Dismissing takes them back to Settings.
       setShowWelcome(true);
+    } catch (e) {
+      // purchasePro() resolves quietly (no throw) if the user just cancels
+      // the store's payment sheet - so reaching here means a real failure
+      // (network, misconfigured product, etc.), worth telling them about.
+      Alert.alert(
+        "Something went wrong",
+        "We couldn't complete your purchase. Please check your connection and try again."
+      );
     } finally {
       setBusy(false);
     }
@@ -150,7 +158,7 @@ export function UpgradeScreen() {
           })}
         </View>
         <Text style={{ color: theme.textMuted, fontSize: fontSizes.label, textAlign: "center", marginBottom: spacing.lg }}>
-          Cancel anytime. Final price and currency are set by the app store at checkout.
+          Cancel anytime. Billed by Cloud Seaker via the app store - final price and currency are set at checkout.
         </Text>
 
         {isPro ? (
