@@ -158,7 +158,7 @@ export function UpgradeScreen() {
           })}
         </View>
         <Text style={{ color: theme.textMuted, fontSize: fontSizes.label, textAlign: "center", marginBottom: spacing.lg }}>
-          Cancel anytime. Final price and currency are set by the app store at checkout.
+          Cancel anytime. Billed by Cloud Seaker via the app store - final price and currency are set at checkout.
         </Text>
 
         {isPro ? (
