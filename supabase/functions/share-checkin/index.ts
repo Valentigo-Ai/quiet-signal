@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       // SMS fallback: MVP returns the link for the client to hand off to the
       // device's native SMS composer (no SMS vendor cost). contact_value is a phone number.
       deliveryResult.sms_link = `sms:${recipient.contact_value}?body=${encodeURIComponent(
-        `${message_text} — view: ${viewUrl}`,
+        `${message_text}\n\n${viewUrl}\n\nSent from the Quiet Signal app`,
       )}`;
     }
 

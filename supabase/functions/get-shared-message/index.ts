@@ -8,12 +8,26 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+// CORS: the recipient page is served from quietsignal.co.uk, a different
+// origin to the Supabase functions host, so the browser needs these headers
+// (and an OPTIONS preflight response) to be allowed to read the JSON.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
     if (!token) {
-      return new Response(JSON.stringify({ error: "token required" }), { status: 400 });
+      return new Response(JSON.stringify({ error: "token required" }), { status: 400, headers: jsonHeaders });
     }
 
     const supabase = createClient(
@@ -28,7 +42,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (error || !shared) {
-      return new Response(JSON.stringify({ error: "not found" }), { status: 404 });
+      return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: jsonHeaders });
     }
 
     if (!shared.viewed_at) {
@@ -57,8 +71,8 @@ Deno.serve(async (req) => {
       payload.recent_history = recentShares ?? [];
     }
 
-    return new Response(JSON.stringify(payload), { headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify(payload), { headers: jsonHeaders });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500 });
+    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: jsonHeaders });
   }
 });
