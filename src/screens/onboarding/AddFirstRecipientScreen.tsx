@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
+import { normalisePhone } from "@/lib/phone";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 
 // Optional, skippable step (Section 4.1 / Flow A step 4). Can always be
@@ -25,6 +26,16 @@ export function AddFirstRecipientScreen() {
       Alert.alert("Almost there", "Add a label (e.g. 'Mum') and a phone number, or skip for now.");
       return;
     }
+    // Store the number in full international format so it works when the share
+    // is handed off to WhatsApp (which rejects local formats), not just SMS.
+    const normalised = normalisePhone(phone);
+    if (!normalised.ok) {
+      Alert.alert(
+        "Check the number",
+        "That doesn't look like a valid phone number. Enter it the way you'd normally dial it - we'll handle the rest."
+      );
+      return;
+    }
     setSaving(true);
     try {
       const { data } = await supabase.auth.getUser();
@@ -33,7 +44,7 @@ export function AddFirstRecipientScreen() {
         user_id: userId,
         recipient_label: label,
         contact_method: "sms", // MVP default; push requires the recipient's own device token
-        contact_value: phone,
+        contact_value: normalised.e164,
       });
       finish();
     } catch (e: any) {

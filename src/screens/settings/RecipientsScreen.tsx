@@ -7,6 +7,7 @@ import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
+import { normalisePhone } from "@/lib/phone";
 import { spacing, fontSizes, radii } from "@/lib/theme";
 
 type Recipient = { id: string; recipient_label: string; contact_method: string; contact_value: string };
@@ -41,6 +42,16 @@ export function RecipientsScreen() {
       navigation.navigate("Upgrade");
       return;
     }
+    // Store the number in full international format so it works when the share
+    // is handed off to WhatsApp (which rejects local formats), not just SMS.
+    const normalised = normalisePhone(phone);
+    if (!normalised.ok) {
+      Alert.alert(
+        "Check the number",
+        "That doesn't look like a valid phone number. Enter it the way you'd normally dial it - we'll handle the rest."
+      );
+      return;
+    }
     setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -48,7 +59,7 @@ export function RecipientsScreen() {
         user_id: userData.user?.id,
         recipient_label: label,
         contact_method: "sms",
-        contact_value: phone,
+        contact_value: normalised.e164,
       });
       if (error) {
         Alert.alert("Couldn't add", error.message);
