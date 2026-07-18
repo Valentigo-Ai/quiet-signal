@@ -53,14 +53,33 @@ check-in, this is arguably a bigger hole than any missing word.
 `useCrisisCheck` to look at both tables. Moderate effort (migration + one
 query each side).
 
-### 2. Up to ~24h detection latency by design
+### 2. Up to ~24h detection latency by design — REVIEWED (Samaritans, July 2026)
 The scan is nightly, and the resources screen only appears on next app open.
 Someone journaling crisis language at 9pm may see nothing until the following
 evening. This is a deliberate, documented posture (not a crisis service, no
-real-time monitoring promised — the consent screen says "nightly"), but the
-reviewer should explicitly endorse or reject it. *Option if rejected:* run
-the same `checkCrisisLanguage` at save time (client- or edge-side) to set the
-flag immediately, keeping the nightly job as the backstop. Low effort.
+real-time monitoring promised — the consent screen says "nightly").
+**Outcome:** raised with Samaritans' review team; their steer was that there
+is no single right answer here for a private, non-crisis-service journaling
+app — nightly-plus-signpost is a defensible posture. We are keeping nightly.
+*Still-open option (not taken):* run the same `checkCrisisLanguage` at SAVE
+time (client- or edge-side) to narrow latency, keeping the nightly job as the
+backstop. Now low-effort since the wordlist is shared. Deferred deliberately:
+for a private diary, the higher-value change was the response moment, not the
+timing (see below), and a client-side check would also mean updating the
+consent wording. Revisit if real-world use shows the latency matters.
+
+**Response-moment fix shipped (July 2026):** the bigger weakness was never the
+timing but what happened when a flag surfaced — the app silently switched to
+the Support tab with no context, and `useCrisisCheck` advanced the
+"acknowledged" timestamp at show-time, so a person who didn't notice the tab
+had changed would never be re-shown it for that flag. Fixed: the auto-shown
+Support screen now presents a warm, plainly-worded acknowledgement card
+(`CrisisResourcesScreen`, driven by the `autoShown` param that was previously
+passed but ignored), and the timestamp advances ONLY when the person taps
+"OK, I understand" (`acknowledgeCrisisSurface`). Until acknowledged, the
+surface re-appears on each app open, so it can no longer be silently missed.
+This directly addresses the "detect but respond weakly" risk that peer
+research flags as the genuinely dangerous quadrant.
 
 ### 3. Wordlist is single-copy but should be shared — DONE (July 2026)
 ~~The list lives only in `nightly-journal-scan`.~~ The wordlist + normalizer
@@ -175,9 +194,12 @@ constitutes review by a qualified safety organisation. Also relevant and free:
 [#chatsafe guidelines](https://www.orygen.org.au/chatsafe) (Orygen) and Zero
 Suicide Alliance training.
 
-## One wording correction found during this review
+## Consent-wording check — RESOLVED (already accurate)
 
-The consent screen (`ConsentScreen.tsx`) describes "a nightly,
-on-device-style check for crisis language". The check is server-side, not
-on-device. Minor, but for THIS feature the disclosure should be exactly
-true. Recommend rewording to "an automated nightly check".
+An earlier draft of this review flagged that the consent copy described "a
+nightly, on-device-style check". On re-checking, the live consent/privacy
+copy lives in `src/constants/legalCopy.ts` (not `ConsentScreen.tsx`) and
+already reads "an automated nightly check … in journal entries and check-in
+notes" and "an automated nightly safety check" — i.e. it is already accurate
+and server-side-honest, with no "on-device" claim. No change needed; noted
+here so the stale correction isn't re-raised.

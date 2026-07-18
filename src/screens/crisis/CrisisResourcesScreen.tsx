@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, Linking, Pressable, ScrollView } from "react-native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useCrisisCountry } from "@/context/CrisisCountryContext";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
@@ -14,6 +15,7 @@ import {
   getVeteranResources,
 } from "@/constants/crisisResources";
 import { RegionPicker } from "@/components/RegionPicker";
+import { acknowledgeCrisisSurface } from "@/lib/useCrisisCheck";
 
 // Section 4.6 / 11.5 - always accessible, plainly worded, accurate contact
 // info only. No claims about confidentiality. Never attempts to respond to
@@ -26,8 +28,28 @@ export function CrisisResourcesScreen() {
   const { theme } = useAppTheme();
   const { country, info, setCountry } = useCrisisCountry();
   const { getSource } = useBackgroundPrefs();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
+
+  // Was this screen opened automatically by the safety net (useCrisisCheck)
+  // rather than tapped to by the person? If so, we show a warm acknowledgement
+  // card explaining, gently, why it appeared - instead of silently dropping
+  // them onto a list of helplines with no context (the old behaviour). The
+  // card is dismissed with an explicit tap, which is the ONLY thing that
+  // advances the acknowledgement timestamp; until then it re-appears on next
+  // app open so it can't be missed. See src/lib/useCrisisCheck.ts.
+  const wasAutoShown = route.params?.autoShown === true && !acknowledged;
+
+  const handleAcknowledge = async () => {
+    await acknowledgeCrisisSurface();
+    setAcknowledged(true);
+    // Clear the param so switching tabs / re-focusing this screen later
+    // doesn't re-show the card outside of a genuine new flag.
+    navigation.setParams({ autoShown: false });
+  };
 
   const generalResources = getGeneralResources(info);
   const veteranResources = getVeteranResources(info);
@@ -55,6 +77,30 @@ export function CrisisResourcesScreen() {
         <TextOnPhoto style={{ marginBottom: spacing.md }}>
           <Text style={[styles.title, { color: theme.text }]}>Support</Text>
         </TextOnPhoto>
+
+        {wasAutoShown && (
+          <View
+            style={[styles.ackCard, cardShadow, { backgroundColor: theme.surface, borderColor: theme.primary }]}
+            accessibilityLiveRegion="polite"
+          >
+            <Text style={[styles.ackHeading, { color: theme.text }]}>
+              Support is here whenever you need it
+            </Text>
+            <Text style={[styles.ackBody, { color: theme.textMuted }]}>
+              We brought you here gently because something in a recent entry made us want to make sure
+              these are close by. There's nothing you have to do, and you're not in any trouble - this is
+              just here if it helps. If things feel urgent, the services below are free and open right now.
+            </Text>
+            <Pressable
+              onPress={handleAcknowledge}
+              style={[styles.ackButton, { backgroundColor: theme.primary, minHeight: theme.minTouchTarget }]}
+              accessibilityRole="button"
+              accessibilityLabel="OK, I understand"
+            >
+              <Text style={[styles.ackButtonText, { color: theme.onPrimary ?? "#fff" }]}>OK, I understand</Text>
+            </Pressable>
+          </View>
+        )}
 
         <Pressable
           onPress={() => setPickerVisible(true)}
@@ -111,6 +157,11 @@ export function CrisisResourcesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   title: { fontSize: fontSizes.largeTitle, fontFamily: fonts.heading },
+  ackCard: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.md, marginBottom: spacing.md },
+  ackHeading: { fontSize: fontSizes.title, fontFamily: fonts.heading, marginBottom: spacing.xs },
+  ackBody: { fontSize: fontSizes.label, lineHeight: 22, marginBottom: spacing.md },
+  ackButton: { borderRadius: 10, alignItems: "center", justifyContent: "center", padding: spacing.sm },
+  ackButtonText: { fontWeight: "700", fontSize: fontSizes.body },
   regionRow: { borderWidth: 1, borderRadius: 10, padding: spacing.sm, marginBottom: spacing.md },
   disclaimerPill: { marginBottom: spacing.lg },
   disclaimer: { fontSize: fontSizes.label, lineHeight: 22 },

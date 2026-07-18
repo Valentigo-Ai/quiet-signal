@@ -12,7 +12,7 @@ export function CrisisBanner() {
 
   return (
     <Pressable
-      onPress={() => navigation.navigate("CrisisResources")}
+      onPress={() => navigation.navigate("CrisisResources", { autoShown: false })}
       accessibilityRole="button"
       accessibilityLabel="Open crisis resources"
       style={[styles.banner, { backgroundColor: theme.primarySoft, borderColor: theme.border }]}
