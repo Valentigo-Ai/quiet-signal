@@ -80,7 +80,7 @@ export function JournalScreen() {
             list of old entries. justifyContent: "center" on this flex:1
             wrapper is what pushes it to the middle of the remaining space
             between the title and the entries toggle below. */}
-        <View style={styles.writeSection}>
+        <View style={[styles.writeSection, showEntries && styles.writeSectionCompact]}>
           <TextInput
             placeholder="Write whatever's on your mind..."
             placeholderTextColor={theme.textMuted}
@@ -134,6 +134,11 @@ const styles = StyleSheet.create({
   // flex: 1 + justifyContent: "center" is what centers the write-in box
   // vertically in the space between the title and the entries toggle.
   writeSection: { flex: 1, justifyContent: "center" },
+  // When saved entries are expanded, the write box stops being a centered
+  // flex item and takes its natural height, so the list below flows cleanly
+  // instead of the box shrinking and its centered content (the Save button)
+  // overflowing onto the toggle row. Collapsed, it stays centered (above).
+  writeSectionCompact: { flex: 0, justifyContent: "flex-start" },
   input: {
     borderWidth: 1,
     borderRadius: 16,
