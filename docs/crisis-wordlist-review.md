@@ -62,14 +62,43 @@ reviewer should explicitly endorse or reject it. *Option if rejected:* run
 the same `checkCrisisLanguage` at save time (client- or edge-side) to set the
 flag immediately, keeping the nightly job as the backstop. Low effort.
 
-### 3. Wordlist is single-copy but should be shared
-The list lives only in `nightly-journal-scan`. If finding 1 is implemented,
-move the wordlist + normalizer to `supabase/functions/_shared/` so both scan
-jobs (and any future save-time check) use one list that gets reviewed once.
+### 3. Wordlist is single-copy but should be shared — DONE (July 2026)
+~~The list lives only in `nightly-journal-scan`.~~ The wordlist + normalizer
+now live in `supabase/functions/_shared/crisisWordlist.ts` and are imported
+by `nightly-journal-scan` (both the journal and check-in-note scans use the
+same `checkCrisisLanguage`). One list, reviewed once. Any future save-time
+check should import the same module.
 
-### 4. English-only
-The list is UK/US English. Fine for a UK launch; becomes a gap if the app is
-localized. Note for the roadmap, not for now.
+### 4. Regional coverage across the six shipping countries — ADDRESSED (July 2026)
+~~The list is UK/US English.~~ Quiet Signal ships in six English-speaking
+countries (US, GB, CA, AU, NZ, IE). This was never a translation gap but a
+regional-idiom gap. The list now includes region-specific euphemisms that
+were previously absent, folded into ONE union list applied to **every** user
+regardless of detected country (locale detection can be wrong — default is
+US — users travel, and phrasings mix; gating per country would create false
+negatives, against our sensitivity bias). Country tags in the source are for
+reviewer organisation only; they do not restrict where a pattern applies.
+
+Added in this pass:
+- **UK / Ireland / Australia / NZ dialect:** `top myself`, `do myself in`,
+  `offing myself`, `had enough of it all`, `want this to end`. Plus a
+  normalization fold `meself → myself` so every "…myself" pattern also
+  catches the GB/IE/AU dialect form.
+- **North American / online algospeak:** `self-delete`/`self-deletion`,
+  `sewerslide` (homophone of "suicide"), `kys` (self-directed in a private
+  journal). Complements the existing `kms`/`unalive`.
+- **Self-harm inflection fixes (real misses):** `self[\s-]?harm` only matched
+  the bare compound — now matches `self-harming`/`selfharmed`; added
+  `self-injury`/`self-injuring` (common US/CA clinical phrasing); added an
+  anchored `cutting my wrists/arms/thighs/legs/skin` alongside the existing
+  `cutting myself` (bare "cutting" is too false-positive-heavy to include).
+- **Casual-contraction normalization:** `gonna→going to`, `wanna→want to`,
+  `gotta→got to`, so phone-typed casual entries still match the patterns.
+
+Verified July 2026 with a true-positive / false-positive test harness: all
+regional additions flag their intended phrases; no NEW false positives beyond
+the ones already documented below. Still NOT a substitute for the
+professional clinical review, which remains ship-blocking (Section 4.5).
 
 ## Known false-positive patterns (accepted for now, reviewer to confirm)
 

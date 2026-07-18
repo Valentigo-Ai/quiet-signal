@@ -40,7 +40,7 @@ function generateMessage(pain: number, anxiety: number, energy: number): string 
     return "Body's okay, but mind's a bit noisy and energy's low today.";
   }
   // Moderate / mixed fallback — always plain language, never numbers.
-  return "A middling day — nothing severe, just getting through it.";
+  return "An okay day — nothing severe, just getting through it.";
 }
 
 Deno.serve(async (req) => {
