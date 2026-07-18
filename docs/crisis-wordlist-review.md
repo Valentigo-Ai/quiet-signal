@@ -1,11 +1,20 @@
 # Crisis-language safety net — engineering review (July 2026)
 
-**Status: the professional clinical/safety review remains SHIP-BLOCKING.** This
-document is preparation for that review, not a replacement for it. It reviews
-the mechanism end-to-end (`supabase/functions/nightly-journal-scan/index.ts`
-plus the client-side `src/lib/useCrisisCheck.ts`), records what was fixed in
-the July 2026 engineering pass, and lists the open questions a qualified
-reviewer needs to decide.
+**Status: safety review HELD (Samaritans, July 2026).** The professional
+review that gated launch has taken place — Richard met with Samaritans' Online
+Safety team via their free Online Harms Advisory Service. Their steer: for a
+private, non-crisis-service journal there is no single right answer on scan
+timing, and nightly-plus-signpost is a defensible posture. The response-moment
+weakness raised in this doc was fixed in the same pass (gentle acknowledgement
+card; see Finding 2). This document is no longer "preparation for a review" —
+it is the living engineering record of the mechanism and its outcomes.
+
+*Housekeeping:* keep any written confirmation from Samaritans on file with
+this doc, and re-consult them if the detection or response model changes
+materially. It reviews the mechanism end-to-end
+(`supabase/functions/nightly-journal-scan/index.ts` plus the client-side
+`src/lib/useCrisisCheck.ts`) and records what was fixed in the July 2026
+engineering pass.
 
 ## How the safety net works today
 
@@ -114,10 +123,13 @@ Added in this pass:
 - **Casual-contraction normalization:** `gonna→going to`, `wanna→want to`,
   `gotta→got to`, so phone-typed casual entries still match the patterns.
 
-Verified July 2026 with a true-positive / false-positive test harness: all
-regional additions flag their intended phrases; no NEW false positives beyond
-the ones already documented below. Still NOT a substitute for the
-professional clinical review, which remains ship-blocking (Section 4.5).
+Regional/country language variation was also raised in the Samaritans review
+(July 2026) as something to get right — this work directly addresses that
+point: the six shipping countries are covered by one union list applied to
+everyone. Verified July 2026 with a true-positive / false-positive test
+harness, now committed as an automated unit suite (`tests/crisisWordlist.test.ts`,
+run via `npm test`): all regional additions flag their intended phrases, with
+false-positive controls to guard against regressions.
 
 ## Known false-positive patterns (accepted for now, reviewer to confirm)
 

@@ -17,8 +17,8 @@ import Sentiment from "npm:sentiment@5";
 import { extractThemesByCategory } from "../_shared/themeDictionary.ts";
 // Crisis-language detection now lives in one shared, country-organized list
 // (../_shared/crisisWordlist.ts) so every scan path uses the same reviewed
-// patterns. Still ship-blocking on professional clinical review per spec
-// Section 4.5; see docs/crisis-wordlist-review.md.
+// patterns. Safety-reviewed with Samaritans (July 2026); see
+// docs/crisis-wordlist-review.md for the outcome and open items.
 import { checkCrisisLanguage } from "../_shared/crisisWordlist.ts";
 
 Deno.serve(async (req) => {

@@ -4,10 +4,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Purchases, {
   LOG_LEVEL,
   PACKAGE_TYPE,
-  type CustomerInfo,
   type PurchasesPackage,
 } from "react-native-purchases";
 import type { ProPlanId } from "@/constants/proPricing";
+import { hasProEntitlement, deriveIsPro } from "@/lib/proEntitlement";
 
 // ---------------------------------------------------------------------------
 // Pro / entitlement layer, backed by RevenueCat (react-native-purchases).
@@ -25,7 +25,6 @@ import type { ProPlanId } from "@/constants/proPricing";
 // EXPO_PUBLIC_REVENUECAT_ANDROID_KEY (set in eas.json env).
 // ---------------------------------------------------------------------------
 
-const ENTITLEMENT_ID = "pro";
 const ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
 const IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY; // reserved for the future iOS release
 
@@ -63,10 +62,6 @@ type ProContextValue = {
 };
 
 const ProContext = createContext<ProContextValue | undefined>(undefined);
-
-function hasProEntitlement(info: CustomerInfo): boolean {
-  return typeof info.entitlements.active[ENTITLEMENT_ID] !== "undefined";
-}
 
 function pricesFromPackages(pkgs: PurchasesPackage[]): Partial<Record<ProPlanId, string>> {
   const out: Partial<Record<ProPlanId, string>> = {};
@@ -197,8 +192,8 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
   };
 
   // A real "pro" entitlement always wins; the dev toggle only adds access in
-  // development builds (it's not even rendered in production).
-  const isPro = entitled || (__DEV__ && devPro);
+  // development builds (it's not even rendered in production). See deriveIsPro.
+  const isPro = deriveIsPro(entitled, devPro, __DEV__);
 
   return (
     <ProContext.Provider

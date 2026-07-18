@@ -5,10 +5,15 @@
 // entries, check-in notes, and any future save-time check) uses ONE list
 // that gets reviewed once. See docs/crisis-wordlist-review.md.
 //
-// ── STILL SHIP-BLOCKING ────────────────────────────────────────────────
-// A professional clinical/safety review of this list remains mandatory
-// before public launch (spec Section 4.5). This file is the mechanism and
-// the engineering best-effort; it is NOT a substitute for that review.
+// ── SAFETY REVIEW: HELD (Samaritans, July 2026) ────────────────────────
+// The professional safety review that gated launch (spec Section 4.5) has
+// taken place: reviewed with Samaritans' Online Safety team via their free
+// Online Harms Advisory Service. Their guidance was received and acted on
+// (see docs/crisis-wordlist-review.md) - including the steer that scan
+// timing is a judgment call for a private, non-crisis-service journal, so
+// nightly-plus-signpost is a defensible posture. This file is still the
+// mechanism, not a guarantee: keep it under review, and re-consult
+// Samaritans if the response model changes materially.
 //
 // ── DESIGN BIAS: SENSITIVITY OVER PRECISION ────────────────────────────
 // A false positive costs the user a gentle resources screen; a false
