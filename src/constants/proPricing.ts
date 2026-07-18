@@ -24,7 +24,7 @@ export type ProPlanInfo = {
 const PRICING_BY_COUNTRY: Record<CountryCode, { monthly: ProPlanInfo; yearly: ProPlanInfo }> = {
   GB: {
     monthly: { label: "Monthly", price: "£3.99", billingNote: "per month, cancel anytime", storeProductId: "quiet_signal_pro_monthly" },
-    yearly: { label: "Yearly", price: "£30", billingNote: "per year (~£2.50/mo)", storeProductId: "quiet_signal_pro_yearly", savePercent: 37 },
+    yearly: { label: "Yearly", price: "£29.99", billingNote: "per year (~£2.50/mo)", storeProductId: "quiet_signal_pro_yearly", savePercent: 37 },
   },
   IE: {
     monthly: { label: "Monthly", price: "€4.99", billingNote: "per month, cancel anytime", storeProductId: "quiet_signal_pro_monthly" },

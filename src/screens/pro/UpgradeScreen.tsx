@@ -51,7 +51,7 @@ const PREVIEW_IDS: BackgroundImageId[] = [
 
 export function UpgradeScreen() {
   const { theme } = useAppTheme();
-  const { isPro, purchasePro, restorePurchases } = usePro();
+  const { isPro, purchasePro, restorePurchases, livePrices } = usePro();
   const { info: countryInfo } = useCrisisCountry();
   const navigation = useNavigation<any>();
   const [busy, setBusy] = useState(false);
@@ -62,12 +62,16 @@ export function UpgradeScreen() {
   const handleSubscribe = async () => {
     setBusy(true);
     try {
-      await purchasePro(plan);
+      const purchased = await purchasePro(plan);
+      // Only celebrate on a real, completed purchase - if the person backed
+      // out of the Play sheet, purchasePro returns false and we stay put.
       // Checkout-moment celebration (Pro tier). This is the one screen in
       // the app that's deliberately a bit flashy on purpose - see
       // ConfettiBurst - because someone just paid for the app and a plain
       // system Alert undersold that. Dismissing takes them back to Settings.
-      setShowWelcome(true);
+      if (purchased) setShowWelcome(true);
+    } catch (e: any) {
+      Alert.alert("Purchase didn't go through", e?.message ?? "Something went wrong. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -141,7 +145,7 @@ export function UpgradeScreen() {
                   </View>
                 ) : null}
                 <Text style={{ color: theme.text, fontWeight: "700" }}>{p.label}</Text>
-                <Text style={[styles.price, { color: theme.text }]}>{p.price}</Text>
+                <Text style={[styles.price, { color: theme.text }]}>{livePrices[id] ?? p.price}</Text>
                 <Text style={{ color: theme.textMuted, fontSize: fontSizes.label, textAlign: "center" }}>
                   {p.billingNote}
                 </Text>
@@ -157,7 +161,7 @@ export function UpgradeScreen() {
           <Text style={[styles.alreadyPro, { color: theme.success }]}>You're already on Pro. Thank you!</Text>
         ) : (
           <PrimaryButton
-            label={`Start Pro - ${plans[plan].price}${plan === "monthly" ? "/mo" : "/yr"}`}
+            label={`Start Pro - ${livePrices[plan] ?? plans[plan].price}${plan === "monthly" ? "/mo" : "/yr"}`}
             onPress={handleSubscribe}
             loading={busy}
           />
