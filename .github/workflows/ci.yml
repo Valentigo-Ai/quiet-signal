@@ -1,0 +1,37 @@
+name: CI
+
+# Runs the type checker and the unit tests on every push and pull request,
+# so a change can't silently break the safety-critical crisis-detection or
+# Pro-entitlement logic. Both commands are the same ones you run locally
+# (`npm run typecheck`, `npm test`).
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  check:
+    name: Typecheck & tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # 22+ is required: the test script uses Node's built-in test runner
+          # with experimental TypeScript stripping (no test framework/deps).
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
