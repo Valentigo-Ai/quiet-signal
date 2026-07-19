@@ -8,6 +8,7 @@ import Purchases, {
 } from "react-native-purchases";
 import type { ProPlanId } from "@/constants/proPricing";
 import { hasProEntitlement, deriveIsPro } from "@/lib/proEntitlement";
+import { supabase } from "@/lib/supabase";
 
 // ---------------------------------------------------------------------------
 // Pro / entitlement layer, backed by RevenueCat (react-native-purchases).
@@ -78,9 +79,13 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [livePrices, setLivePrices] = useState<Partial<Record<ProPlanId, string>>>({});
   const packagesRef = useRef<PurchasesPackage[]>([]);
+  // The Supabase user id currently identified to RevenueCat (null = anonymous).
+  const identifiedRef = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
+    // Supabase auth subscription, torn down on unmount.
+    let authSub: { unsubscribe: () => void } | undefined;
 
     (async () => {
       // Non-mobile (web): no native billing. Restore the dev flag in __DEV__
@@ -106,14 +111,49 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
         } else {
           Purchases.configure({ apiKey });
 
-          const info = await Purchases.getCustomerInfo();
-          if (mounted) setEntitled(hasProEntitlement(info));
-
           // Live entitlement updates (renewals, purchases on other devices,
           // cancellations) flow in here without a manual refresh.
           Purchases.addCustomerInfoUpdateListener((updated) => {
             setEntitled(hasProEntitlement(updated));
           });
+
+          // Keep RevenueCat's identity in lockstep with the Supabase user, so
+          // the RevenueCat app_user_id IS the Supabase auth.users.id. This is
+          // what lets the server-side revenuecat-webhook map a purchase to an
+          // account - without it RevenueCat assigns an anonymous id the backend
+          // can't resolve. Idempotent: guarded by identifiedRef so repeated
+          // auth events (e.g. token refresh) don't re-call logIn needlessly.
+          const syncIdentity = async (userId: string | null) => {
+            try {
+              if (userId) {
+                if (identifiedRef.current === userId) return;
+                const { customerInfo } = await Purchases.logIn(userId);
+                identifiedRef.current = userId;
+                if (mounted) setEntitled(hasProEntitlement(customerInfo));
+              } else if (identifiedRef.current) {
+                // Only log out if a real user was previously identified;
+                // Purchases.logOut() throws when already anonymous.
+                const info = await Purchases.logOut();
+                identifiedRef.current = null;
+                if (mounted) setEntitled(hasProEntitlement(info));
+              }
+            } catch (e) {
+              console.warn("[Pro] RevenueCat identity sync failed:", e);
+            }
+          };
+
+          // Identify from any restored session first, then track auth changes.
+          const { data: sessionData } = await supabase.auth.getSession();
+          const initialUserId = sessionData.session?.user?.id ?? null;
+          if (initialUserId) {
+            await syncIdentity(initialUserId);
+          } else {
+            const info = await Purchases.getCustomerInfo();
+            if (mounted) setEntitled(hasProEntitlement(info));
+          }
+          authSub = supabase.auth.onAuthStateChange((_event, s) => {
+            void syncIdentity(s?.user?.id ?? null);
+          }).data.subscription;
 
           // Preload the current offering for pricing + purchase.
           const offerings = await Purchases.getOfferings();
@@ -136,6 +176,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
+      authSub?.unsubscribe();
     };
   }, []);
 
