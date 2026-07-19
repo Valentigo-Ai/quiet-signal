@@ -1,5 +1,5 @@
 import "react-native-url-polyfill/auto";
-import { Platform } from "react-native";
+import { Platform, AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 
@@ -28,6 +28,27 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: Platform.OS === "web",
   },
 });
+
+// React Native requires wiring Supabase's token auto-refresh to the app's
+// foreground/background state. `autoRefreshToken: true` above only arms the
+// refresh timer - on mobile it must be explicitly started when the app is
+// active and stopped when it's backgrounded (JS timers are unreliable in the
+// background). Without this the ~1-hour access token silently expires while
+// the app sits in the background, and the next resume can leave the client
+// with a dead session - the root cause of the "white screen after a few
+// hours" bug. Not needed on web, where the browser keeps the timer running.
+if (Platform.OS !== "web") {
+  AppState.addEventListener("change", (state) => {
+    if (state === "active") {
+      supabase.auth.startAutoRefresh();
+    } else {
+      supabase.auth.stopAutoRefresh();
+    }
+  });
+  // The app is active at launch, so start refreshing immediately rather than
+  // waiting for the first foreground transition.
+  supabase.auth.startAutoRefresh();
+}
 
 // Edge function helpers -----------------------------------------------------
 

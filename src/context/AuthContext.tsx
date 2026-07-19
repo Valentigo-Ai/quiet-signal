@@ -36,31 +36,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [needsConsent, setNeedsConsent] = useState(false);
 
   const refreshConsentStatus = useCallback(async () => {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
+    // Must never throw: this runs during app startup (see the bootstrap
+    // effect below), and an unhandled error here would previously prevent
+    // setLoading(false) from running, leaving the app stuck on a blank
+    // screen. On any failure (e.g. an expired token or offline), fall back
+    // to not blocking on consent rather than crashing startup.
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) {
+        setNeedsConsent(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("profiles")
+        .select("consent_given_at")
+        .eq("user_id", userId)
+        .maybeSingle();
+      setNeedsConsent(!data?.consent_given_at);
+    } catch {
       setNeedsConsent(false);
-      return;
     }
-    const { data } = await supabase
-      .from("profiles")
-      .select("consent_given_at")
-      .eq("user_id", userId)
-      .maybeSingle();
-    setNeedsConsent(!data?.consent_given_at);
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session);
-      if (data.session) await refreshConsentStatus();
-      setLoading(false);
-    });
+    let mounted = true;
+
+    // Restore any persisted session on launch. This is wrapped so that a
+    // failure - most importantly an expired token whose refresh call throws -
+    // can NEVER leave `loading` stuck at true. RootNavigator renders a blank
+    // screen while loading, so a stuck load was the "white screen after a few
+    // hours" bug: the fix is that setLoading(false) always runs (finally),
+    // and on error we fall back to a signed-out state so the login/onboarding
+    // screen shows instead of nothing.
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!mounted) return;
+        setSession(data.session);
+        if (data.session) await refreshConsentStatus();
+      } catch {
+        if (mounted) setSession(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, s) => {
       setSession(s);
       if (s) await refreshConsentStatus();
     });
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, [refreshConsentStatus]);
 
   const signUp = async (email: string, password: string) => {
