@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { CrisisCountryProvider } from "@/context/CrisisCountryContext";
 import { ProProvider } from "@/context/ProContext";
 import { BackgroundPrefsProvider } from "@/context/BackgroundPrefsContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import { useAppFonts } from "@/lib/useAppFonts";
 
@@ -65,21 +66,23 @@ export default function App() {
   if (!fontsLoaded) return null;
 
   return (
-    <ThemeProvider>
-      <ProProvider>
-        <BackgroundPrefsProvider>
-          <CrisisCountryProvider>
-            <AuthProvider>
-              {/* translucent + transparent background so the full-screen photo behind
-                  each screen renders all the way to the top edge on Android instead
-                  of sitting under an opaque status bar strip (iOS is already
-                  translucent-over-content by default). */}
-              <StatusBar style="auto" translucent backgroundColor="transparent" />
-              <RootNavigator />
-            </AuthProvider>
-          </CrisisCountryProvider>
-        </BackgroundPrefsProvider>
-      </ProProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <ProProvider>
+          <BackgroundPrefsProvider>
+            <CrisisCountryProvider>
+              <AuthProvider>
+                {/* translucent + transparent background so the full-screen photo behind
+                    each screen renders all the way to the top edge on Android instead
+                    of sitting under an opaque status bar strip (iOS is already
+                    translucent-over-content by default). */}
+                <StatusBar style="auto" translucent backgroundColor="transparent" />
+                <RootNavigator />
+              </AuthProvider>
+            </CrisisCountryProvider>
+          </BackgroundPrefsProvider>
+        </ProProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
