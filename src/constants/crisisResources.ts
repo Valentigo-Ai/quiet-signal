@@ -6,6 +6,10 @@
 // lifeline.org.au, 1737.org.nz, veteransaffairs.mil.nz, samaritans.org,
 // pieta.ie, one-veterans.org, gov.ie). Re-verify periodically - helplines
 // occasionally change numbers.
+//
+// Re-verified 20 July 2026 against official sources: all numbers current
+// except SSAFA Forcesline, which had changed from 0800 731 4880 to
+// 0800 260 6767 (per ssafa.org.uk/get-help/forcesline) - now corrected.
 
 export type CrisisResource = {
   name: string;
@@ -56,8 +60,8 @@ export const CRISIS_RESOURCES_BY_COUNTRY: Record<CountryCode, CountryCrisisInfo>
       {
         name: "SSAFA",
         description: "Support for serving personnel, veterans, and their families.",
-        phone: "0800 731 4880",
-        callHref: "tel:08007314880",
+        phone: "0800 260 6767",
+        callHref: "tel:08002606767",
         url: "https://www.ssafa.org.uk",
         audience: "veteran",
       },
