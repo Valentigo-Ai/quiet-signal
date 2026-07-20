@@ -11,6 +11,8 @@ import { WhatAreYouDealingWithScreen } from "@/screens/onboarding/WhatAreYouDeal
 import { ConsentScreen } from "@/screens/onboarding/ConsentScreen";
 import { SignUpScreen } from "@/screens/onboarding/SignUpScreen";
 import { LoginScreen } from "@/screens/onboarding/LoginScreen";
+import { ForgotPasswordScreen } from "@/screens/onboarding/ForgotPasswordScreen";
+import { ResetPasswordScreen } from "@/screens/onboarding/ResetPasswordScreen";
 import { AddFirstRecipientScreen } from "@/screens/onboarding/AddFirstRecipientScreen";
 
 import { CheckInScreen } from "@/screens/home/CheckInScreen";
@@ -56,6 +58,8 @@ function OnboardingNavigator({ initialRouteName }: { initialRouteName?: string }
       <OnboardingStack.Screen name="Consent" component={ConsentScreen} />
       <OnboardingStack.Screen name="SignUp" component={SignUpScreen} />
       <OnboardingStack.Screen name="Login" component={LoginScreen} />
+      <OnboardingStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <OnboardingStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <OnboardingStack.Screen name="AddFirstRecipient" component={AddFirstRecipientScreen} />
     </OnboardingStack.Navigator>
   );

@@ -25,6 +25,12 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  /** Sends a password-reset email containing a 6-digit code. Never reveals
+   * whether the email has an account (Supabase returns success either way). */
+  requestPasswordReset: (email: string) => Promise<void>;
+  /** Verifies the emailed recovery code, then sets the new password. On
+   * success the user ends up signed in with a fresh session. */
+  confirmPasswordReset: (email: string, token: string, newPassword: string) => Promise<void>;
   refreshConsentStatus: () => Promise<void>;
 };
 
@@ -169,9 +175,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
+  // Password reset, code-based (not a magic-link deep link). resetPasswordForEmail
+  // sends the recovery email; with the Supabase "Reset Password" template set to
+  // include {{ .Token }}, the user gets a 6-digit code they type into the app.
+  // This avoids deep-link/redirect plumbing entirely, which is far more reliable
+  // on native. Note: Supabase intentionally does NOT error for an unknown email,
+  // so this never discloses whether an account exists.
+  const requestPasswordReset = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    if (error) throw error;
+  };
+
+  const confirmPasswordReset = async (email: string, token: string, newPassword: string) => {
+    // verifyOtp(type: "recovery") exchanges the 6-digit code for a real session,
+    // so the subsequent updateUser() is an authenticated call that sets the new
+    // password. Once verifyOtp succeeds the user is effectively signed in, and
+    // onAuthStateChange routes them into the app.
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: token.trim(),
+      type: "recovery",
+    });
+    if (verifyError) throw verifyError;
+
+    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+    if (updateError) throw updateError;
+  };
+
   return (
     <AuthContext.Provider
-      value={{ session, loading, needsConsent, signUp, signIn, signInWithGoogle, signOut, refreshConsentStatus }}
+      value={{ session, loading, needsConsent, signUp, signIn, signInWithGoogle, signOut, requestPasswordReset, confirmPasswordReset, refreshConsentStatus }}
     >
       {children}
     </AuthContext.Provider>

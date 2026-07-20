@@ -91,6 +91,16 @@ export function LoginScreen() {
       </View>
       <PrimaryButton label="Log in" onPress={handleLogin} loading={loading} disabled={googleLoading} />
 
+      <Pressable
+        onPress={() => navigation.navigate("ForgotPassword")}
+        style={{ marginTop: spacing.sm, alignSelf: "center" }}
+        hitSlop={8}
+      >
+        <TextOnPhoto style={{ alignSelf: "center" }}>
+          <Text style={{ color: theme.textMuted }}>Forgot your password?</Text>
+        </TextOnPhoto>
+      </Pressable>
+
       <View style={styles.dividerRow}>
         <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
         <TextOnPhoto style={styles.dividerLabelPill}>
