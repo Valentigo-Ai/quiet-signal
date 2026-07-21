@@ -1,15 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  FlatList,
-  Alert,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import { View, Text, TextInput, StyleSheet, FlatList, Alert, Pressable, Keyboard } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -38,6 +28,26 @@ export function JournalScreen() {
   // box (the actual point of this screen) as the thing someone sees first
   // instead of a wall of old entries.
   const [showEntries, setShowEntries] = useState(false);
+
+  // Manual keyboard-height tracking instead of KeyboardAvoidingView. This app
+  // targets Android SDK 36, where edge-to-edge display is enforced - the
+  // classic "the OS resizes the window for the keyboard" assumption
+  // (windowSoftInputMode adjustResize, which KeyboardAvoidingView leans on)
+  // doesn't reliably hold under edge-to-edge. Keyboard.addListener's
+  // endCoordinates.height is accurate regardless, so this screen's container
+  // gets that as extra bottom padding, shrinking the flex:1 write box down to
+  // whatever space is actually left above the keyboard.
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
+      setKeyboardHeight(e.endCoordinates?.height ?? 0);
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const loadEntries = async () => {
     const { data } = await supabase
@@ -81,16 +91,16 @@ export function JournalScreen() {
           was a plain (non-scrolling) View with an auto-growing TextInput, so
           a long entry just kept getting taller past the bottom of the screen
           with nothing to reveal the part hidden behind the keyboard - unlike
-          CheckInScreen there wasn't even a ScrollView to fall back on.
-          Android already resizes the window for the keyboard (Expo's default
-          windowSoftInputMode is adjustResize), so behavior is only set here
-          for iOS to avoid double-shrinking the layout on Android. The actual
-          fix for "can't see what I'm typing" is the input's own flex: 1 below
-          (see styles.input) - that bounds its height instead of letting it
-          grow forever, which turns it into a normal scrollable text box that
-          keeps the cursor in view on its own. */}
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <View style={styles.container}>
+          CheckInScreen there wasn't even a ScrollView to fall back on. The
+          fix is two parts: the input's own flex: 1 below (see styles.input)
+          bounds its height instead of letting it grow forever, turning it
+          into a normal scrollable text box that keeps the cursor in view on
+          its own; and keyboardHeight (tracked above) is added as bottom
+          padding on this container so that bounded box actually shrinks to
+          fit the space left above the keyboard, rather than assuming the OS
+          resizes the window for us - which doesn't reliably happen on this
+          app's edge-to-edge Android target. */}
+      <View style={[styles.container, { paddingBottom: spacing.lg + keyboardHeight }]}>
         <TextOnPhoto style={styles.titleCard}>
           <Text style={[styles.title, { color: theme.text }]}>Journal</Text>
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>
@@ -145,7 +155,6 @@ export function JournalScreen() {
           <View style={{ height: tabBarHeight + spacing.lg }} />
         )}
       </View>
-      </KeyboardAvoidingView>
     </ScreenBackground>
   );
 }
@@ -167,15 +176,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
     padding: spacing.lg,
-    // Was 100 - the main focus of the whole app, so it gets real room
-    // instead of reading like an afterthought under a list of old entries.
-    minHeight: 260,
+    // Big and inviting when there's room (flex: 1 below fills whatever
+    // space writeSection has when the keyboard's closed). minHeight is
+    // deliberately low - 260 looked good with the keyboard closed, but with
+    // it open and keyboardHeight padding shrinking the container, a 260
+    // floor could still force the Save button past the visible area. 100 is
+    // enough to stay usable as a text box without fighting the shrink.
+    minHeight: 100,
     // flex: 1 bounds the box to whatever space writeSection actually has
-    // (which shrinks along with the rest of the screen when the keyboard
-    // opens) instead of letting a multiline TextInput auto-grow past the
-    // visible area. Bounded like this, it becomes a normal scrollable text
-    // box that keeps the cursor in view on its own - that's what fixes a
-    // long entry disappearing behind the keyboard.
+    // (which shrinks via the container's keyboardHeight padding above)
+    // instead of letting a multiline TextInput auto-grow past the visible
+    // area. Bounded like this, it becomes a normal scrollable text box that
+    // keeps the cursor in view on its own - that's what fixes a long entry
+    // disappearing behind the keyboard.
     flex: 1,
     textAlignVertical: "top",
     marginBottom: spacing.md,
