@@ -1,6 +1,7 @@
 import "react-native-url-polyfill/auto";
 import React, { useEffect } from "react";
 import { Platform } from "react-native";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { StatusBar } from "expo-status-bar";
 import * as NavigationBar from "expo-navigation-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -66,23 +67,36 @@ export default function App() {
   if (!fontsLoaded) return null;
 
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <ProProvider>
-          <BackgroundPrefsProvider>
-            <CrisisCountryProvider>
-              <AuthProvider>
-                {/* translucent + transparent background so the full-screen photo behind
-                    each screen renders all the way to the top edge on Android instead
-                    of sitting under an opaque status bar strip (iOS is already
-                    translucent-over-content by default). */}
-                <StatusBar style="auto" translucent backgroundColor="transparent" />
-                <RootNavigator />
-              </AuthProvider>
-            </CrisisCountryProvider>
-          </BackgroundPrefsProvider>
-        </ProProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+    // KeyboardProvider (react-native-keyboard-controller) has to wrap
+    // everything that uses KeyboardAwareScrollView (CheckInScreen,
+    // JournalScreen). This replaces the earlier Keyboard.addListener-based
+    // height tracking, which turned out to depend on the window actually
+    // resizing when the keyboard opens - on this app's Android SDK 36 /
+    // edge-to-edge target, adjustResize behaves like adjustNothing (Android
+    // just hands over IME insets instead of resizing anything), so that
+    // event never reliably fired and the keyboard kept covering the input on
+    // real devices. This library reads the native IME inset/animation
+    // directly instead of depending on a window resize, so it isn't
+    // affected by that edge-to-edge behavior change.
+    <KeyboardProvider>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <ProProvider>
+            <BackgroundPrefsProvider>
+              <CrisisCountryProvider>
+                <AuthProvider>
+                  {/* translucent + transparent background so the full-screen photo behind
+                      each screen renders all the way to the top edge on Android instead
+                      of sitting under an opaque status bar strip (iOS is already
+                      translucent-over-content by default). */}
+                  <StatusBar style="auto" translucent backgroundColor="transparent" />
+                  <RootNavigator />
+                </AuthProvider>
+              </CrisisCountryProvider>
+            </BackgroundPrefsProvider>
+          </ProProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </KeyboardProvider>
   );
 }

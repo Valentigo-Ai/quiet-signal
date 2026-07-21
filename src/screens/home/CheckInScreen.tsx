@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
-import { View, Text, TextInput, StyleSheet, ScrollView, Alert, Keyboard } from "react-native";
+import React, { useState } from "react";
+import { Text, TextInput, StyleSheet, Alert } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -30,30 +31,7 @@ export function CheckInScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<any>();
   const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
-  const scrollRef = useRef<ScrollView>(null);
   useCrisisCheck(); // Flow D - runs quietly on every home screen open
-
-  // Manual keyboard-height tracking, not KeyboardAvoidingView/windowSoftInputMode.
-  // This app targets Android SDK 36, where edge-to-edge display is enforced -
-  // the classic "the OS resizes the window and KeyboardAvoidingView/adjustResize
-  // handle it" assumption doesn't reliably hold under edge-to-edge, since the
-  // window no longer resizes the way it used to. Keyboard.addListener's
-  // endCoordinates.height is the one signal that's actually accurate here
-  // regardless of edge-to-edge, so we use it directly as extra scroll room.
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  useEffect(() => {
-    const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
-      setKeyboardHeight(e.endCoordinates?.height ?? 0);
-      // Re-scroll once the real keyboard height is known, rather than
-      // guessing with a fixed timeout against the pre-keyboard layout.
-      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
-    });
-    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardHeight(0));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   // Starts unselected each time the screen mounts - nothing pre-highlighted
   // until the person actively taps a choice for that day (Section 4.2:
@@ -107,13 +85,15 @@ export function CheckInScreen() {
 
   return (
     <ScreenVideoBackground>
-      <ScrollView
-        ref={scrollRef}
+      {/* KeyboardAwareScrollView (react-native-keyboard-controller) auto-scrolls
+          the focused input above the keyboard using the native IME inset/
+          animation directly - see the KeyboardProvider comment in App.tsx for
+          why the previous Keyboard.addListener approach didn't hold up. */}
+      <KeyboardAwareScrollView
+        bottomOffset={spacing.lg}
         contentContainerStyle={{
           padding: spacing.lg,
-          // keyboardHeight is 0 when the keyboard's closed, so this collapses
-          // back to the normal bottom padding automatically.
-          paddingBottom: tabBarHeight + spacing.lg + keyboardHeight,
+          paddingBottom: tabBarHeight + spacing.lg,
         }}
         keyboardShouldPersistTaps="handled"
       >
@@ -136,11 +116,6 @@ export function CheckInScreen() {
           value={note}
           onChangeText={setNote}
           multiline
-          onFocus={() => {
-            // Let the keyboard finish animating in before scrolling, otherwise
-            // we scroll against the pre-keyboard layout height and undershoot.
-            setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
-          }}
           style={[
             styles.noteInput,
             { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface + "F0" },
@@ -178,7 +153,7 @@ export function CheckInScreen() {
             "checkin" entry in BackgroundPrefsContext is simply unused now -
             harmless, not worth ripping out since other code still reads/
             writes it uniformly across screens. */}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </ScreenVideoBackground>
   );
 }
