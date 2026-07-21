@@ -158,7 +158,15 @@ const styles = StyleSheet.create({
   // that used to live here moves to the contentContainerStyle variants below,
   // since centering has to happen on the scrollable content, not the
   // scroll-view frame itself.
-  writeSection: { flex: 1 },
+  // minHeight: 0 matters here: a plain flex: 1 child refuses to shrink below
+  // its own content's intrinsic size (the fixed-height input + button below
+  // it, ~300px). That's invisible until the keyboard opens and the
+  // (flex: 1) `container` around this actually shrinks to fit above it -
+  // without minHeight: 0, this ScrollView held its ground at ~300px instead
+  // of shrinking with it, so the disclosure row below ("Show saved entries")
+  // got pushed into/over the Save entry button instead of this view
+  // properly shrinking and scrolling its own content internally.
+  writeSection: { flex: 1, minHeight: 0 },
   // When saved entries are expanded, the write box stops taking the
   // remaining space so the list below flows cleanly instead of the box
   // pushing the toggle row down. Collapsed, it takes the remaining space
