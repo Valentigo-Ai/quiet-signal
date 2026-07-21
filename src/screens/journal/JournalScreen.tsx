@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, StyleSheet, FlatList, Alert, Pressable } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  FlatList,
+  Alert,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -67,6 +77,19 @@ export function JournalScreen() {
 
   return (
     <ScreenBackground source={getSource("journal")}>
+      {/* This screen had no keyboard handling at all before: the write box
+          was a plain (non-scrolling) View with an auto-growing TextInput, so
+          a long entry just kept getting taller past the bottom of the screen
+          with nothing to reveal the part hidden behind the keyboard - unlike
+          CheckInScreen there wasn't even a ScrollView to fall back on.
+          Android already resizes the window for the keyboard (Expo's default
+          windowSoftInputMode is adjustResize), so behavior is only set here
+          for iOS to avoid double-shrinking the layout on Android. The actual
+          fix for "can't see what I'm typing" is the input's own flex: 1 below
+          (see styles.input) - that bounds its height instead of letting it
+          grow forever, which turns it into a normal scrollable text box that
+          keeps the cursor in view on its own. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={styles.container}>
         <TextOnPhoto style={styles.titleCard}>
           <Text style={[styles.title, { color: theme.text }]}>Journal</Text>
@@ -122,6 +145,7 @@ export function JournalScreen() {
           <View style={{ height: tabBarHeight + spacing.lg }} />
         )}
       </View>
+      </KeyboardAvoidingView>
     </ScreenBackground>
   );
 }
@@ -146,6 +170,13 @@ const styles = StyleSheet.create({
     // Was 100 - the main focus of the whole app, so it gets real room
     // instead of reading like an afterthought under a list of old entries.
     minHeight: 260,
+    // flex: 1 bounds the box to whatever space writeSection actually has
+    // (which shrinks along with the rest of the screen when the keyboard
+    // opens) instead of letting a multiline TextInput auto-grow past the
+    // visible area. Bounded like this, it becomes a normal scrollable text
+    // box that keeps the cursor in view on its own - that's what fixes a
+    // long entry disappearing behind the keyboard.
+    flex: 1,
     textAlignVertical: "top",
     marginBottom: spacing.md,
     fontSize: fontSizes.title,

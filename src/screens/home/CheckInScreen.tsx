@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, ScrollView, Alert } from "react-native";
+import React, { useRef, useState } from "react";
+import { View, Text, TextInput, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -30,6 +30,7 @@ export function CheckInScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<any>();
   const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
+  const scrollRef = useRef<ScrollView>(null);
   useCrisisCheck(); // Flow D - runs quietly on every home screen open
 
   // Starts unselected each time the screen mounts - nothing pre-highlighted
@@ -84,7 +85,20 @@ export function CheckInScreen() {
 
   return (
     <ScreenVideoBackground>
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: tabBarHeight + spacing.lg }}>
+      {/* iOS gets the native "padding" keyboard-avoiding behavior; Android
+          already resizes the window via windowSoftInputMode (Expo's default
+          is adjustResize), so adding a second "height" adjustment here would
+          double up with that and squash the layout. The onFocus handler on
+          the note input below (scrollToEnd) is what actually fixes the bug
+          on Android - the ScrollView resizes with the window but doesn't
+          auto-scroll to the focused field, so the note box was landing
+          behind the keyboard even though the screen itself had shrunk. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: tabBarHeight + spacing.lg }}
+        keyboardShouldPersistTaps="handled"
+      >
         <CrisisBanner />
         <TextOnPhoto style={{ marginBottom: spacing.lg }}>
           <Text style={[styles.title, { color: theme.text }]}>{getGreeting().greeting}</Text>
@@ -104,6 +118,11 @@ export function CheckInScreen() {
           value={note}
           onChangeText={setNote}
           multiline
+          onFocus={() => {
+            // Let the keyboard finish animating in before scrolling, otherwise
+            // we scroll against the pre-keyboard layout height and undershoot.
+            setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+          }}
           style={[
             styles.noteInput,
             { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface + "F0" },
@@ -142,6 +161,7 @@ export function CheckInScreen() {
             harmless, not worth ripping out since other code still reads/
             writes it uniformly across screens. */}
       </ScrollView>
+      </KeyboardAvoidingView>
     </ScreenVideoBackground>
   );
 }
