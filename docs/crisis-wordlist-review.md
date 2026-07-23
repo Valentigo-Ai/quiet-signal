@@ -48,19 +48,18 @@ preferred over precision throughout.
   internet euphemisms **"unalive"** and **"kms"** — important given younger
   users routinely use platform-safe euphemisms instead of the clinical words.
 
-## Findings that need a product/clinical decision (NOT yet fixed)
+## Findings that needed a product/clinical decision
 
-### 1. Check-in notes are never scanned — highest-priority gap
-The daily check-in has an optional free-text note ("Anything else?"). **No
-crisis scan ever runs on it.** Only journal entries are scanned
-(`checkin-archive-scan` does retention roll-ups only, no crisis check). A
-user who writes crisis language in the nightly check-in note instead of the
-journal is invisible to the safety net. For an app whose core loop *is* the
-check-in, this is arguably a bigger hole than any missing word.
-*Recommended fix:* add `flagged_crisis` to the `checkins` table, scan
-`note` in the nightly job with the same shared wordlist, and extend
-`useCrisisCheck` to look at both tables. Moderate effort (migration + one
-query each side).
+### 1. Check-in notes are never scanned — FIXED (July 2026)
+~~The daily check-in has an optional free-text note ("Anything else?"). No
+crisis scan ever runs on it.~~ Fixed in the same July 2026 pass referenced
+throughout this doc: `checkins` now has `flagged_crisis` and
+`note_scanned_at` columns, `nightly-journal-scan` scans every unprocessed
+check-in note with the same shared `checkCrisisLanguage` wordlist (Step 1b),
+and `useCrisisCheck` queries both `journal_entries` and `checkins` for an
+unacknowledged flag. This section was left describing the pre-fix state in
+an earlier draft of this doc after the fix shipped — corrected here so it
+isn't mistaken for an open gap by a future reviewer.
 
 ### 2. Up to ~24h detection latency by design — REVIEWED (Samaritans, July 2026)
 The scan is nightly, and the resources screen only appears on next app open.
@@ -167,8 +166,7 @@ already discloses the nightly check, which is the right mitigation.
 
 1. Is nightly + next-open latency an acceptable posture for this product's
    non-crisis-service positioning? (Finding 2)
-2. Should check-in notes be scanned? (Engineering recommendation: yes —
-   Finding 1)
+2. ~~Should check-in notes be scanned?~~ Done — see Finding 1.
 3. Review the pattern list line by line: additions, removals, and whether
    the sensitivity bias is correctly tuned for this audience.
 4. Is the auto-shown Crisis Resources screen the right response, shown the
