@@ -13,12 +13,18 @@ import { BackgroundPrefsProvider } from "@/context/BackgroundPrefsContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import { useAppFonts } from "@/lib/useAppFonts";
+import { initSentry, wrapRoot } from "@/lib/sentry";
+
+// Initialize crash reporting as early as possible - before the font gate
+// below, which is exactly where the cold-start white-screen bug hid with no
+// evidence trail. No-ops in dev and when no DSN is configured.
+initSentry();
 
 // Keep the splash screen up until the brand fonts (Fraunces/Karla) are
 // loaded, so there's no flash of system-font text on first paint.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-export default function App() {
+function App() {
   const fontsLoaded = useAppFonts();
 
   useEffect(() => {
@@ -100,3 +106,8 @@ export default function App() {
     </KeyboardProvider>
   );
 }
+
+// Sentry's wrapper sits above everything - including the `return null` font
+// gate and KeyboardProvider, both outside our own ErrorBoundary - so
+// render-phase errors anywhere in the tree get reported.
+export default wrapRoot(App);
