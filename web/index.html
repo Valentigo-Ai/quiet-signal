@@ -37,11 +37,42 @@
   .timestamp { color: #8FA0D8; font-size: 13px; }
   .error { color: #E08079; }
   .history-item { padding: 8px 0; border-top: 1px solid #2C3560; }
+  .support-note {
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    color: #7C87B0;
+    font-size: 12px;
+    line-height: 1.6;
+    margin-top: 16px;
+    padding: 0 12px;
+  }
+  .support-note a { color: #A9B4DC; }
+  .page { display: flex; flex-direction: column; align-items: center; }
 </style>
 </head>
 <body>
-  <div class="card" id="card">
-    <div class="label">Loading…</div>
+  <div class="page">
+    <div class="card" id="card">
+      <div class="label">Loading…</div>
+    </div>
+    <!--
+      Samaritans mapping (docs/crisis-wordlist-review.md, guideline 4 -
+      "user-friendly reporting"): a recipient reading a worrying check-in
+      here had no in-product guidance. This line is always shown, on every
+      load (success, error, or empty), because we never expose the sender's
+      private flagged_crisis status to a recipient - that would be a privacy
+      violation and this app makes no diagnostic claims. Findahelpline.com
+      (run by ThroughLine, partnered with IASP) is used because it's a
+      verified international directory covering 175+ countries, which a
+      single recipient's country can't be assumed from a check-in link.
+    -->
+    <div class="support-note">
+      If you're ever worried about someone after reading a message here,
+      <a href="https://findahelpline.com" target="_blank" rel="noopener">findahelpline.com</a>
+      has free, confidential crisis support services in most countries. In an emergency, contact
+      your local emergency number.
+    </div>
   </div>
 
   <script>
