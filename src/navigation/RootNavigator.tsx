@@ -1,5 +1,6 @@
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
+import * as SplashScreen from "expo-splash-screen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
@@ -150,7 +151,26 @@ export function RootNavigator() {
   const { session, loading, needsConsent } = useAuth();
   const { theme } = useAppTheme();
 
-  if (loading) return null; // could add a calm splash/loading state here
+  // React Navigation's DefaultTheme background is white - override it with
+  // the app's midnight background so any frame the navigator paints before
+  // a screen's own content (or its background photo) arrives is navy, not a
+  // white flash.
+  const navTheme = React.useMemo(
+    () => ({
+      ...DefaultTheme,
+      colors: {
+        ...DefaultTheme.colors,
+        background: theme.background,
+        card: theme.surface,
+      },
+    }),
+    [theme]
+  );
+
+  // While auth restores the session the splash screen is still up (App.tsx
+  // no longer hides it early), so returning null here is invisible - the
+  // splash covers it, then onReady below drops it once real UI has mounted.
+  if (loading) return null;
 
   // A session with needsConsent=true means someone signed in (most likely
   // via Google - Section 4.1) without ever going through the health-data
@@ -160,7 +180,16 @@ export function RootNavigator() {
   const showOnboarding = !session || needsConsent;
 
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      theme={navTheme}
+      // The real end of "app is starting up": navigation has mounted and the
+      // first screen exists. Hiding the splash here (instead of on font load
+      // in App.tsx) is what removes the white gap between splash and first
+      // screen on cold start.
+      onReady={() => {
+        SplashScreen.hideAsync().catch(() => {});
+      }}
+    >
       {/* contentStyle here (and on the nested navigators below) is the
           belt-and-braces fix for the white-flash bug: react-navigation's
           own screen containers have no background color by default, so any

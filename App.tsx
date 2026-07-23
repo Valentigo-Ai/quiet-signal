@@ -27,9 +27,23 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 function App() {
   const fontsLoaded = useAppFonts();
 
+  // White-flash-on-launch fix (2026-07-23): the splash used to be hidden here
+  // the moment fonts loaded - but at that point RootNavigator is usually still
+  // in its `if (loading) return null` auth-loading state, so nothing was
+  // rendered behind the splash and the bare (white) window showed through
+  // until the first real screen painted. The splash is now hidden by
+  // RootNavigator's NavigationContainer onReady instead - i.e. only once real
+  // UI exists. This effect is just the safety net: if navigation somehow
+  // never becomes ready (e.g. a startup error caught by ErrorBoundary), the
+  // splash still comes down after 8s rather than covering the screen forever
+  // - same "never hang forever" philosophy as the font timeout in
+  // useAppFonts.ts.
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
-  }, [fontsLoaded]);
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Android-only: with edge-to-edge now mandatory on Android (Expo SDK 54 /
   // Android 15+), the system navigation bar is transparent by default, and
