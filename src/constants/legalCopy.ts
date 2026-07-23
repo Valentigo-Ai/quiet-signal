@@ -47,7 +47,7 @@ export function getCrisisSafetyDisclaimer(info: CountryCrisisInfo): string {
 
 export const PRIVACY_NOTICE_MARKDOWN = `# Quiet Signal Privacy Notice
 
-**Last updated:** 1 July 2026
+**Last updated:** 23 July 2026
 
 ## What we collect
 Your account email, your daily check-in scores (pain, anxiety/PTSD state, energy), any optional notes
@@ -62,10 +62,18 @@ support if it's ever needed.
 For as long as your account exists. If you delete your account, everything is deleted immediately and
 irreversibly - not just deactivated.
 
+## Crash reporting
+If the app crashes or hits a technical error, an automatic report is sent to Sentry, our crash-reporting
+provider, so we can find and fix the bug. These reports contain technical details only - device model,
+operating system version, app version, and what went wrong in the code. They never include your journal
+entries, check-in scores, notes, email, or IP address. Crash data is stored on Sentry's servers in the
+European Union and is automatically deleted after a short retention period (at most 90 days).
+
 ## Who can see it
 Only you - except for a specific check-in status message you actively choose to share, which is visible
-only to the specific person you send it to. We never see, sell, or share your data with advertisers or
-other third parties.
+only to the specific person you send it to. We never sell your data or share it with advertisers. The
+services that run Quiet Signal on our behalf (our database host, our payment processor, and our
+crash-reporting provider) process it only to make the app work, on our instructions.
 
 ## Your rights
 You can export all of your data or delete your account at any time from Settings. Deleting your account
