@@ -31,12 +31,19 @@ export function JournalScreen() {
   const [showEntries, setShowEntries] = useState(false);
 
   const loadEntries = async () => {
-    const { data } = await supabase
-      .from("journal_entries")
-      .select("id, date, entry_text, flagged_crisis")
-      .order("date", { ascending: false })
-      .limit(30);
-    setEntries(data ?? []);
+    // Guarded (2026-07-24 review): a network-level throw here was an
+    // unhandled rejection. Keeping whatever entries are already shown beats
+    // crashing or clearing the list.
+    try {
+      const { data } = await supabase
+        .from("journal_entries")
+        .select("id, date, entry_text, flagged_crisis")
+        .order("date", { ascending: false })
+        .limit(30);
+      setEntries(data ?? []);
+    } catch {
+      // best-effort list refresh - leave existing entries in place
+    }
   };
 
   useEffect(() => {
@@ -61,6 +68,10 @@ export function JournalScreen() {
       }
       setText("");
       await loadEntries();
+    } catch (e: any) {
+      // Same guard as CheckInScreen's save (2026-07-24 review): a network
+      // throw must not silently swallow a journal entry save.
+      Alert.alert("Couldn't save", e?.message ?? "Please check your connection and try again.");
     } finally {
       setSaving(false);
     }

@@ -28,22 +28,34 @@ export function CrisisCountryProvider({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     (async () => {
-      const stored = await AsyncStorage.getItem(CRISIS_COUNTRY_STORAGE_KEY);
-      if (stored && stored in CRISIS_RESOURCES_BY_COUNTRY) {
-        setCountryState(stored as CountryCode);
-        setIsAutoDetected(false);
-      } else {
+      // Guarded (2026-07-24 review, closing the session-1 handover item): an
+      // AsyncStorage rejection used to leave `ready` false forever and skip
+      // region detection entirely. Crisis resources must always come up -
+      // worst case we fall back to device-detected (or default) country.
+      try {
+        const stored = await AsyncStorage.getItem(CRISIS_COUNTRY_STORAGE_KEY);
+        if (stored && stored in CRISIS_RESOURCES_BY_COUNTRY) {
+          setCountryState(stored as CountryCode);
+          setIsAutoDetected(false);
+        } else {
+          setCountryState(detectDeviceCountry());
+          setIsAutoDetected(true);
+        }
+      } catch {
         setCountryState(detectDeviceCountry());
         setIsAutoDetected(true);
+      } finally {
+        setReady(true);
       }
-      setReady(true);
     })();
   }, []);
 
   const setCountry = (code: CountryCode) => {
     setCountryState(code);
     setIsAutoDetected(false);
-    AsyncStorage.setItem(CRISIS_COUNTRY_STORAGE_KEY, code);
+    // Persistence is best-effort; the in-memory choice above already took
+    // effect for this session either way.
+    AsyncStorage.setItem(CRISIS_COUNTRY_STORAGE_KEY, code).catch(() => {});
   };
 
   const value: CrisisCountryContextValue = {

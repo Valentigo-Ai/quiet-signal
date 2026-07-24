@@ -79,6 +79,16 @@
     // Replace with your deployed Supabase project URL if different.
     const FUNCTION_BASE = "https://bzczbsrtbnqiydscvnak.supabase.co/functions/v1/get-shared-message";
 
+    // Escape anything user-authored before it goes through innerHTML.
+    // message_text (and recipient_label) are written by the SENDER, so
+    // without this a sender could put e.g. <img onerror=...> in an edited
+    // message and have script run in their recipient's browser on this
+    // page (stored XSS). Everything user-authored below goes through this.
+    const esc = (s) =>
+      String(s ?? "").replace(/[&<>"']/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]),
+      );
+
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
     const card = document.getElementById("card");
@@ -93,16 +103,16 @@
             card.innerHTML = '<div class="label error">This link has expired or is invalid.</div>';
             return;
           }
-          const label = data.recipient_label ? `${data.recipient_label}, here's today's check-in:` : "Today's check-in:";
+          const label = data.recipient_label ? `${esc(data.recipient_label)}, here's today's check-in:` : "Today's check-in:";
           let html = `
             <div class="label">${label}</div>
-            <div class="message">${data.message}</div>
+            <div class="message">${esc(data.message)}</div>
             <div class="timestamp">Sent ${new Date(data.sent_at).toLocaleString()}</div>
           `;
           if (data.recent_history && data.recent_history.length > 0) {
             html += '<div class="label" style="margin-top:20px;">Recent check-ins</div>';
             for (const h of data.recent_history) {
-              html += `<div class="history-item">${h.message_text}<br/><span class="timestamp">${new Date(h.sent_at).toLocaleDateString()}</span></div>`;
+              html += `<div class="history-item">${esc(h.message_text)}<br/><span class="timestamp">${new Date(h.sent_at).toLocaleDateString()}</span></div>`;
             }
           }
           card.innerHTML = html;

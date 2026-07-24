@@ -78,6 +78,11 @@ export function CheckInScreen() {
       // today. The subtitle just above the button (below) tells the user
       // this is coming, so landing on the share screen isn't a surprise.
       navigation.navigate("ShareFlow", { checkinId: checkin.id });
+    } catch (e: any) {
+      // Guarded (2026-07-24 review): a network-level throw (getUser/upsert)
+      // used to fail silently - button stopped spinning, nothing saved, no
+      // message. The person deserves to know their check-in didn't save.
+      Alert.alert("Couldn't save", e?.message ?? "Please check your connection and try again.");
     } finally {
       setSaving(false);
     }

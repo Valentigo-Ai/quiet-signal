@@ -29,15 +29,30 @@ export function ShareFlowScreen() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const [{ data: recData }, generated] = await Promise.all([
-        supabase.from("recipients").select("id, recipient_label").order("created_at", { ascending: true }),
-        generateMessage(checkinId).catch(() => "Checked in today."),
-      ]);
-      setRecipients(recData ?? []);
-      setMessage(generated);
-      setLoadingMessage(false);
+      // Guarded (2026-07-24 review): a network-level throw from the
+      // recipients query used to skip setLoadingMessage(false), leaving a
+      // permanent spinner with the share button disabled - same "stuck
+      // loading" class of bug as the auth bootstrap hang. Now the finally
+      // always lands, and the message falls back to a safe default.
+      try {
+        const [{ data: recData }, generated] = await Promise.all([
+          supabase.from("recipients").select("id, recipient_label").order("created_at", { ascending: true }),
+          generateMessage(checkinId).catch(() => "Checked in today."),
+        ]);
+        if (cancelled) return;
+        setRecipients(recData ?? []);
+        setMessage(generated);
+      } catch {
+        if (!cancelled) setMessage("Checked in today.");
+      } finally {
+        if (!cancelled) setLoadingMessage(false);
+      }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [checkinId]);
 
   const handleShare = async () => {
