@@ -32,6 +32,21 @@ export function initSentry(): void {
   });
 }
 
+// Reports a startup hang/timeout (see AuthContext's withTimeout) - the class
+// of bug that produces a silent blank screen with no crash for Play vitals
+// to see. PII-free: the error contains only our own timeout label. Safe to
+// call when Sentry is disabled (dev) - capture is simply a no-op.
+export function reportStartupHang(err: unknown): void {
+  try {
+    Sentry.captureException(
+      err instanceof Error ? err : new Error("startup hang: unknown"),
+      { tags: { area: "auth-bootstrap" } }
+    );
+  } catch {
+    // Telemetry must never break startup handling.
+  }
+}
+
 // Wraps the root component so Sentry can catch render-phase errors above our
 // own ErrorBoundary (which sits below the font gate in App.tsx - the exact
 // blind spot the white-screen bug lived in).

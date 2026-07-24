@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import * as WebBrowser from "expo-web-browser";
 import { supabase } from "@/lib/supabase";
+import { reportStartupHang } from "@/lib/sentry";
 
 // Lets the in-app browser tab close itself and hand control back once the
 // Google OAuth redirect lands - required boilerplate per Expo's AuthSession
@@ -35,6 +36,32 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+// Races a promise against a timeout. Needed because the v23 fix (try/finally
+// around session restore) only covers calls that *settle* - getSession() and
+// getUser() can also HANG outright (observed 2026-07-24: token expired
+// overnight, cold start sat on the bare #0B1128 window forever; sign-out and
+// back in "fixed" it by wiping the stored session). A hung await never
+// reaches `finally`, so setLoading(false) never ran. This guarantees every
+// bootstrap await settles one way or the other.
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -77,11 +104,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // screen shows instead of nothing.
     (async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data } = await withTimeout(supabase.auth.getSession(), 6000, "getSession");
         if (!mounted) return;
         setSession(data.session);
-        if (data.session) await refreshConsentStatus();
-      } catch {
+        if (data.session) {
+          // Consent check hanging must not sign the user out or block first
+          // paint - on timeout just don't gate on consent this launch (the
+          // onAuthStateChange listener re-checks on the next auth event).
+          await withTimeout(refreshConsentStatus(), 4000, "consent check").catch((err) => {
+            reportStartupHang(err);
+            if (mounted) setNeedsConsent(false);
+          });
+        }
+      } catch (err) {
+        // Timeout or genuine failure: fall back to signed-out so the login
+        // screen shows instead of nothing. If a slow refresh eventually
+        // succeeds in the background, onAuthStateChange routes them back in.
+        reportStartupHang(err);
         if (mounted) setSession(null);
       } finally {
         if (mounted) setLoading(false);
