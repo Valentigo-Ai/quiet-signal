@@ -6,6 +6,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
 import { useAppTheme } from "@/context/ThemeContext";
+import { logSplashOnReady, reportSplashHideFailure } from "@/lib/sentry";
 
 import { WelcomeScreen } from "@/screens/onboarding/WelcomeScreen";
 import { WhatAreYouDealingWithScreen } from "@/screens/onboarding/WhatAreYouDealingWithScreen";
@@ -187,7 +188,8 @@ export function RootNavigator() {
       // in App.tsx) is what removes the white gap between splash and first
       // screen on cold start.
       onReady={() => {
-        SplashScreen.hideAsync().catch(() => {});
+        logSplashOnReady();
+        SplashScreen.hideAsync().catch((err) => reportSplashHideFailure(err, "onReady"));
       }}
     >
       {/* contentStyle here (and on the nested navigators below) is the

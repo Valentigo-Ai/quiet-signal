@@ -55,3 +55,40 @@ export function wrapRoot<P extends Record<string, unknown>>(
 ): ComponentType<P> {
   return Sentry.wrap(component);
 }
+
+// Reports a failure to dismiss the splash screen - the other class of bug
+// that produces the same symptom as reportStartupHang above (silent blank/
+// navy screen, no native crash for Play vitals to see), but on the splash
+// side rather than auth-bootstrap: SplashScreen.hideAsync() itself throwing,
+// on either the primary RootNavigator.onReady path or the App.tsx failsafe
+// timer. callSite says which one, so the Sentry timeline can tell "hideAsync
+// threw" apart from "onReady never fired at all" together with
+// logSplashOnReady's breadcrumb below. PII-free: only our own label and call
+// site. Safe to call when Sentry is disabled (dev) - capture is a no-op.
+export function reportSplashHideFailure(
+  err: unknown,
+  callSite: "onReady" | "app-failsafe-12s"
+): void {
+  try {
+    Sentry.captureException(
+      err instanceof Error ? err : new Error(`splash hideAsync failed: unknown (${callSite})`),
+      { tags: { area: "splash-dismiss", callSite } }
+    );
+  } catch {
+    // Telemetry must never break startup handling.
+  }
+}
+
+// Breadcrumb marking that RootNavigator's NavigationContainer onReady
+// actually fired. On its own this reports nothing - it just gives a stuck-
+// splash Sentry event (captured by the app-failsafe-12s report, or a later
+// user-reported hang) a timeline to distinguish "onReady never fired" (no
+// breadcrumb before the failsafe fires) from "onReady fired but hideAsync()
+// threw" (breadcrumb present, followed by a splash-dismiss/onReady report).
+export function logSplashOnReady(): void {
+  try {
+    Sentry.addBreadcrumb({ category: "splash-dismiss", message: "onReady fired", level: "info" });
+  } catch {
+    // Telemetry must never break startup handling.
+  }
+}

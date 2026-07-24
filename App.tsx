@@ -13,7 +13,7 @@ import { BackgroundPrefsProvider } from "@/context/BackgroundPrefsContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import { useAppFonts } from "@/lib/useAppFonts";
-import { initSentry, wrapRoot } from "@/lib/sentry";
+import { initSentry, wrapRoot, reportSplashHideFailure } from "@/lib/sentry";
 
 // Initialize crash reporting as early as possible - before the font gate
 // below, which is exactly where the cold-start white-screen bug hid with no
@@ -35,13 +35,21 @@ function App() {
   // RootNavigator's NavigationContainer onReady instead - i.e. only once real
   // UI exists. This effect is just the safety net: if navigation somehow
   // never becomes ready (e.g. a startup error caught by ErrorBoundary), the
-  // splash still comes down after 8s rather than covering the screen forever
-  // - same "never hang forever" philosophy as the font timeout in
-  // useAppFonts.ts.
+  // splash still comes down rather than covering the screen forever - same
+  // "never hang forever" philosophy as the font timeout in useAppFonts.ts.
+  //
+  // 12s, not 8s (2026-07-24): AuthContext's own bootstrap timeouts stack up
+  // to ~10s worst case (6s getSession + 4s consent check, sequential) before
+  // RootNavigator's `loading` can turn false. An 8s failsafe could fire while
+  // that's still in flight, hiding the splash over a still-null RootNavigator
+  // - and since the splash background, app.json's root backgroundColor, and
+  // RootNavigator's blank state are all the same navy (#0B1128), that reads
+  // as "still hung" even though hideAsync() succeeded. 12s stays safely above
+  // the real worst case so this failsafe never fires before loading can.
   useEffect(() => {
     const timer = setTimeout(() => {
-      SplashScreen.hideAsync().catch(() => {});
-    }, 8000);
+      SplashScreen.hideAsync().catch((err) => reportSplashHideFailure(err, "app-failsafe-12s"));
+    }, 12000);
     return () => clearTimeout(timer);
   }, []);
 
