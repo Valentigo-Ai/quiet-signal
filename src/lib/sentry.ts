@@ -34,13 +34,22 @@ export function initSentry(): void {
 
 // Reports a startup hang/timeout (see AuthContext's withTimeout) - the class
 // of bug that produces a silent blank screen with no crash for Play vitals
-// to see. PII-free: the error contains only our own timeout label. Safe to
+// to see. PII-free: the error contains only our own timeout label.
+// `outcome` optionally distinguishes what actually happened once a slow
+// auth-bootstrap settled - "slow" (still in flight, no decision made yet),
+// "timeout-fallback" (we gave up waiting and forced a sign-out), or
+// "background-error" (the background refresh threw but an optimistic
+// session was already up, so no sign-out happened). Omit it for plain
+// startup-hang reports elsewhere (e.g. the consent-check timeout). Safe to
 // call when Sentry is disabled (dev) - capture is simply a no-op.
-export function reportStartupHang(err: unknown): void {
+export function reportStartupHang(
+  err: unknown,
+  outcome?: "slow" | "timeout-fallback" | "background-error"
+): void {
   try {
     Sentry.captureException(
       err instanceof Error ? err : new Error("startup hang: unknown"),
-      { tags: { area: "auth-bootstrap" } }
+      { tags: { area: "auth-bootstrap", ...(outcome ? { outcome } : {}) } }
     );
   } catch {
     // Telemetry must never break startup handling.

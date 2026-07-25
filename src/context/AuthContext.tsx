@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { Platform } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import * as WebBrowser from "expo-web-browser";
-import { supabase } from "@/lib/supabase";
+import { supabase, getPersistedSession } from "@/lib/supabase";
 import { reportStartupHang } from "@/lib/sentry";
 
 // Lets the in-app browser tab close itself and hand control back once the
@@ -94,36 +94,117 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    // Whether the real getSession() call below has returned or thrown yet -
+    // read by the soft/hard timers so they only act while it's still
+    // in flight, and set before either branch below touches state so a
+    // late resolution can tell it's no longer the freshest source of truth.
+    let resolved = false;
+    // Set only by the hard timeout giving up - guards against that same
+    // late resolution then clobbering whatever happened after (e.g. the
+    // user manually signing back in) with its now-stale result.
+    let abandoned = false;
 
-    // Restore any persisted session on launch. This is wrapped so that a
-    // failure - most importantly an expired token whose refresh call throws -
-    // can NEVER leave `loading` stuck at true. RootNavigator renders a blank
-    // screen while loading, so a stuck load was the "white screen after a few
-    // hours" bug: the fix is that setLoading(false) always runs (finally),
-    // and on error we fall back to a signed-out state so the login/onboarding
-    // screen shows instead of nothing.
     (async () => {
+      // Read whatever session was last persisted, without touching the
+      // network (see getPersistedSession) - this is what makes the
+      // difference between "slow" and "signed out" below.
+      const persisted = await getPersistedSession();
+
+      if (persisted && mounted) {
+        // Optimistic path (2026-07-25 fix): a persisted session - even one
+        // whose access token has expired - lets the user straight into the
+        // app immediately. The real getSession() call right below keeps
+        // running in the background and corrects this once it settles,
+        // instead of the previous behaviour of racing it against a 6s
+        // timeout and signing the user out just because a refresh was
+        // slow (a routine occurrence once the ~1hr access token has
+        // expired and the device has a slow connection at cold start).
+        setSession(persisted);
+        setLoading(false);
+      }
+
+      const bootstrap = supabase.auth.getSession();
+
+      // Telemetry only - fires purely because 6s elapsed with the real
+      // call still in flight. Whether it ultimately succeeds or not isn't
+      // known yet, so it must never itself change auth state.
+      const softTimer = persisted
+        ? setTimeout(() => {
+            if (!resolved) {
+              reportStartupHang(new Error("getSession still running after 6000ms"), "slow");
+            }
+          }, 6000)
+        : null;
+
+      // Last-resort recovery for a device that never gets a network
+      // response at all. Without this, a permanently offline phone would
+      // stay "optimistically signed in" on a possibly long-expired session
+      // forever, with no path back to a working account. Deliberately far
+      // above the 6s soft timer above so it only fires when the real call
+      // is truly stuck, not just slow.
+      const hardTimer = persisted
+        ? setTimeout(() => {
+            if (!resolved) {
+              abandoned = true;
+              reportStartupHang(
+                new Error("getSession never settled after 45000ms"),
+                "timeout-fallback"
+              );
+              if (mounted) setSession(null);
+            }
+          }, 45000)
+        : null;
+
       try {
-        const { data } = await withTimeout(supabase.auth.getSession(), 6000, "getSession");
-        if (!mounted) return;
+        // No persisted session: __loadSession finds nothing in storage and
+        // resolves immediately without any network call, so this timeout
+        // is pure belt-and-braces - it should never actually fire here.
+        // (A persisted session, by contrast, is awaited directly: letting
+        // gotrue-js's own resolution - not our clock - decide the outcome
+        // is the entire point of this fix.)
+        const { data } = persisted
+          ? await bootstrap
+          : await withTimeout(bootstrap, 6000, "getSession");
+
+        resolved = true;
+        if (softTimer) clearTimeout(softTimer);
+        if (hardTimer) clearTimeout(hardTimer);
+        if (!mounted || abandoned) return;
+
+        // gotrue-js only ever resolves session:null here for an outcome it
+        // has actually decided - nothing was persisted, or a refresh that
+        // genuinely, conclusively failed - never merely because this took
+        // a while. Safe to trust directly, unlike our own timeout above.
         setSession(data.session);
         if (data.session) {
-          // Consent check hanging must not sign the user out or block first
-          // paint - on timeout just don't gate on consent this launch (the
-          // onAuthStateChange listener re-checks on the next auth event).
+          // Consent check hanging must not sign the user out or block
+          // first paint - on timeout just don't gate on consent this
+          // launch (the onAuthStateChange listener re-checks on the next
+          // auth event).
           await withTimeout(refreshConsentStatus(), 4000, "consent check").catch((err) => {
             reportStartupHang(err);
             if (mounted) setNeedsConsent(false);
           });
         }
       } catch (err) {
-        // Timeout or genuine failure: fall back to signed-out so the login
-        // screen shows instead of nothing. If a slow refresh eventually
-        // succeeds in the background, onAuthStateChange routes them back in.
-        reportStartupHang(err);
-        if (mounted) setSession(null);
+        resolved = true;
+        if (softTimer) clearTimeout(softTimer);
+        if (hardTimer) clearTimeout(hardTimer);
+        if (!mounted || abandoned) return;
+
+        // Reachable here for two different reasons: (a) no persisted
+        // session and our own 6s timeout fired - nothing was showing
+        // anyway, so falling back to signed-out is free; or (b)
+        // getSession() itself threw an unexpected error while a persisted
+        // session's optimistic UI was already up - inconclusive (not the
+        // "genuinely failed" signal gotrue-js normally returns in-band),
+        // so it's reported but does NOT sign the user out.
+        reportStartupHang(err, persisted ? "background-error" : "timeout-fallback");
+        if (!persisted) setSession(null);
       } finally {
-        if (mounted) setLoading(false);
+        // The persisted branch already cleared loading optimistically
+        // above - only the no-persisted-session path needs it here.
+        if (mounted && !persisted) setLoading(false);
       }
     })();
 

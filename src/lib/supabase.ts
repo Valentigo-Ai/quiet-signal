@@ -1,7 +1,7 @@
 import "react-native-url-polyfill/auto";
 import { Platform, AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type Session } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL as string;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
@@ -28,6 +28,42 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: Platform.OS === "web",
   },
 });
+
+// Mirrors supabase-js's own default storage key (SupabaseClient constructor:
+// `sb-${hostname.split('.')[0]}-auth-token`) so AuthContext can read
+// whatever session was last persisted without going through getSession() -
+// which, on an expired token, triggers a network refresh and can be slow.
+// See getPersistedSession below.
+const AUTH_STORAGE_KEY = `sb-${new URL(supabaseUrl || "https://placeholder.supabase.co").hostname.split(".")[0]}-auth-token`;
+
+function isSessionShaped(value: unknown): value is Session {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "access_token" in value &&
+    "refresh_token" in value &&
+    "expires_at" in value
+  );
+}
+
+// Reads the last session Supabase persisted to AsyncStorage, without ever
+// touching the network - unlike getSession(), which refreshes an expired
+// token before resolving and can hang on a slow connection (see
+// AuthContext's bootstrap). Returned even if its access token has expired;
+// callers decide whether "last known, possibly stale" is good enough to show
+// optimistically while a real refresh runs in the background. Never throws -
+// a missing or corrupted entry is just null, same as gotrue-js's own
+// storage read.
+export async function getPersistedSession(): Promise<Session | null> {
+  try {
+    const raw = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return isSessionShaped(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 // React Native requires wiring Supabase's token auto-refresh to the app's
 // foreground/background state. `autoRefreshToken: true` above only arms the
