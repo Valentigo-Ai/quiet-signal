@@ -13,7 +13,9 @@ import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { supabase } from "@/lib/supabase";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 import { useCrisisCheck } from "@/lib/useCrisisCheck";
+import { reportDataError } from "@/lib/sentry";
 import { PAIN_LABELS, ANXIETY_LABELS, PTSD_LABELS, ENERGY_LABELS } from "@/constants/scaleLabels";
+import { normalisePresentingConcerns } from "@/constants/presentingConcerns";
 
 // Time-aware greeting (July 2026, matches the website's hero mockup):
 // "Good morning/afternoon/evening" plus a day/tonight-phrased question.
@@ -57,13 +59,18 @@ export function CheckInScreen() {
       let cancelled = false;
       (async () => {
         if (!session?.user.id) return;
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("profiles")
           .select("presenting_concerns, presenting_concerns_set")
           .eq("user_id", session.user.id)
           .maybeSingle();
         if (cancelled) return;
-        setConcerns(data?.presenting_concerns ?? []);
+        // Falls back to the same Anxiety-only default a never-answered
+        // profile gets - already the intended behavior for "we don't know
+        // what this person picked," not a lie the way an empty History list
+        // would be, so this is reported but not surfaced to the person.
+        if (error) reportDataError(error, "checkin-load-concerns");
+        setConcerns(normalisePresentingConcerns(data?.presenting_concerns ?? []));
         setAnswered(data?.presenting_concerns_set ?? false);
       })();
       return () => {
@@ -129,6 +136,7 @@ export function CheckInScreen() {
         .single();
 
       if (error || !checkin) {
+        reportDataError(error ?? new Error("checkin upsert returned no row"), "checkin-save");
         Alert.alert("Couldn't save", error?.message ?? "Please try again.");
         return;
       }
@@ -141,6 +149,7 @@ export function CheckInScreen() {
       // Guarded (2026-07-24 review): a network-level throw (getUser/upsert)
       // used to fail silently - button stopped spinning, nothing saved, no
       // message. The person deserves to know their check-in didn't save.
+      reportDataError(e, "checkin-save");
       Alert.alert("Couldn't save", e?.message ?? "Please check your connection and try again.");
     } finally {
       setSaving(false);

@@ -20,3 +20,26 @@ export const PRESENTING_CONCERN_OPTIONS: { key: string; label: string }[] = [
 // as much when someone is revisiting the choice as when they first make it.
 export const PRESENTING_CONCERNS_BLURB =
   "Totally optional. This just helps us use the right words for you - it's never shown to anyone you share with.";
+
+// Keys WhatAreYouDealingWithScreen offered before the July 2026 split (a
+// combined "PTSD / anxiety" plus a "Both" choice, replaced by the
+// independent "anxiety"/"ptsd" above). The 2026-07-26 migration
+// (migrate_legacy_presenting_concerns) rewrote every row already in the
+// database, but CheckInScreen's gating is a literal `includes("anxiety")`/
+// `includes("ptsd")` check - a row that somehow still holds one of these
+// (a delayed write, a restored backup, a future bug) would otherwise match
+// neither and silently mean "ask nothing," the exact failure the migration
+// fixed. This is the second, cheap line of defense against that.
+const LEGACY_CONCERN_KEYS: Record<string, string[]> = {
+  both: ["chronic_pain", "anxiety"],
+  ptsd_anxiety: ["anxiety"],
+};
+
+// Maps any legacy keys to their current equivalents, leaving current keys
+// untouched. Never introduces "ptsd" on someone's behalf, same reasoning as
+// the migration: that's a new daily trauma-response question this person
+// never opted into, not something a data-format fixup should spring on them.
+export function normalisePresentingConcerns(concerns: string[]): string[] {
+  const mapped = concerns.flatMap((key) => LEGACY_CONCERN_KEYS[key] ?? [key]);
+  return [...new Set(mapped)];
+}

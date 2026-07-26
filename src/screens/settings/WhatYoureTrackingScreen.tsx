@@ -5,8 +5,13 @@ import { useAppTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
+import { reportDataError } from "@/lib/sentry";
 import { spacing, fontSizes } from "@/lib/theme";
-import { PRESENTING_CONCERN_OPTIONS, PRESENTING_CONCERNS_BLURB } from "@/constants/presentingConcerns";
+import {
+  PRESENTING_CONCERN_OPTIONS,
+  PRESENTING_CONCERNS_BLURB,
+  normalisePresentingConcerns,
+} from "@/constants/presentingConcerns";
 
 // Settings -> "What you're tracking". The same question onboarding asks
 // ("What are you dealing with?"), made editable afterwards.
@@ -50,11 +55,12 @@ export function WhatYoureTrackingScreen() {
       // there would wipe a real selection the person can't see. Bail back
       // instead of showing a form that lies about the current state.
       if (error) {
+        reportDataError(error, "tracking-settings-load");
         Alert.alert("Couldn't load", "We couldn't load your current choices. Please try again in a moment.");
         navigation.goBack();
         return;
       }
-      setSelected(data?.presenting_concerns ?? []);
+      setSelected(normalisePresentingConcerns(data?.presenting_concerns ?? []));
       setOther(data?.presenting_concerns_other ?? "");
       setLoading(false);
     })();
@@ -90,6 +96,7 @@ export function WhatYoureTrackingScreen() {
       if (error) throw error;
       navigation.goBack();
     } catch (e: any) {
+      reportDataError(e, "tracking-settings-save");
       Alert.alert("Couldn't save", e.message ?? String(e));
     } finally {
       setSaving(false);
