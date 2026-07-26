@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
+import { reportDataError } from "@/lib/sentry";
 import { normalisePhone } from "@/lib/phone";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 
@@ -40,12 +41,26 @@ export function AddFirstRecipientScreen() {
     try {
       const { data } = await supabase.auth.getUser();
       const userId = data.user?.id;
-      await supabase.from("recipients").insert({
+      const { error } = await supabase.from("recipients").insert({
         user_id: userId,
         recipient_label: label,
         contact_method: "sms", // MVP default; push requires the recipient's own device token
         contact_value: normalised.e164,
       });
+      if (error) {
+        // This insert's result used to go unchecked entirely - a failure
+        // here silently proceeded to Main as if the recipient had saved.
+        // This step is optional/skippable by design, so still finish rather
+        // than trap the person in onboarding over it, but they need to know
+        // it didn't actually save.
+        reportDataError(error, "recipient-add-onboarding");
+        Alert.alert(
+          "Couldn't add that person",
+          "You can add them any time from Settings > Shared with."
+        );
+        finish();
+        return;
+      }
       finish();
     } catch (e: any) {
       Alert.alert("Couldn't save", e.message ?? String(e));

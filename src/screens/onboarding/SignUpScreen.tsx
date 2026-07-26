@@ -9,6 +9,7 @@ import { ScreenBackground } from "@/components/ScreenBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
+import { reportDataError } from "@/lib/sentry";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 import { CONSENT_VERSION } from "@/constants/legalCopy";
 
@@ -44,7 +45,7 @@ export function SignUpScreen() {
       const { data } = await supabase.auth.getUser();
       const userId = data.user?.id;
       if (userId) {
-        await supabase.from("profiles").upsert({
+        const { error: profileError } = await supabase.from("profiles").upsert({
           user_id: userId,
           presenting_concerns: presentingConcerns,
           presenting_concerns_other: presentingConcernsOther || null,
@@ -55,6 +56,19 @@ export function SignUpScreen() {
           consent_given_at: consentGivenAt ?? new Date().toISOString(),
           consent_version: CONSENT_VERSION,
         });
+        if (profileError) {
+          // This result used to go unchecked entirely. The account itself
+          // is already created by this point (signUp() above succeeded),
+          // and retrying signUp() here would just fail on "email already
+          // registered" - so report and let the person continue rather than
+          // strand them, but tell them plainly so a missing preference
+          // later doesn't read as the app having lost something.
+          reportDataError(profileError, "signup-profile-save");
+          Alert.alert(
+            "Account created",
+            "Your account is ready, but we couldn't save your preferences just now. You can set them up any time from Settings."
+          );
+        }
       }
       navigation.navigate("AddFirstRecipient");
     } catch (e: any) {

@@ -94,22 +94,51 @@ export function reportSplashHideFailure(
   }
 }
 
-// Reports a failed read in useCrisisCheck (journal_entries/checkins query
-// for an unacknowledged flagged_crisis row). This gates whether the
-// auto-surfaced Crisis Resources screen appears on app open, so a silently
-// swallowed error here is a safety-net gap, not just a UX bug - the caller
-// must treat any report from this function as "uncertain, so show the
-// screen" rather than "no flag found". PII-free: PostgrestError messages
-// describe the query/schema, never row content. Safe to call when Sentry is
-// disabled (dev) - capture is a no-op.
-export function reportCrisisCheckError(err: unknown, source: "journal" | "checkins"): void {
+// Reports a Supabase data-layer failure - a PostgREST error (from
+// supabase.from()/.rpc()), an auth-data error, or an edge function
+// invocation error. Added 2026-07-26 after a shipped build's check-in
+// screen wrote a column (ptsd_score) that didn't exist yet in the
+// database: every save failed, History 400'd on every load, and Sentry
+// recorded nothing, because every call site in this codebase handles
+// failure with Alert.alert or an unchecked `error` - nothing throws, so
+// nothing reported. This is the one place that wiring now goes through,
+// same as reportAuthHang/reportSplashHideFailure are the one place for
+// their categories - not a second parallel system.
+//
+// `area` identifies the call site (e.g. "checkin-save", "history-load"),
+// matching how reportAuthHang uses its `area` tag. `code` (e.g. PGRST204
+// for a schema mismatch, 42501 for an RLS refusal) is tagged rather than
+// left in `extra` because it's exactly what you'd filter Sentry issues by
+// to answer "is this the same failure recurring." `context` is for a call
+// site's own non-sensitive detail (e.g. which table/action) - never pass
+// the row payload itself through it.
+//
+// PII/health-data-free by construction: a PostgrestError's own
+// code/message/details/hint describe the query or schema that failed
+// (a missing column, a policy name, a constraint name), never the values
+// that were being written - that's what this function extracts and
+// nothing else. Do not add a raw `error` object or a request body to
+// `context` upstream of this, since that could carry the payload with it.
+type PostgrestLikeError = { code?: string; message?: string; details?: string; hint?: string };
+
+export function reportDataError(
+  error: unknown,
+  area: string,
+  context?: Record<string, string | number | boolean>
+): void {
   try {
-    const message = err instanceof Error ? err.message : (err as { message?: string })?.message;
-    Sentry.captureException(new Error(`crisis check query failed: ${message ?? "unknown"}`), {
-      tags: { area: "crisis-check", source },
+    const pg = (error ?? {}) as PostgrestLikeError;
+    const message = pg.message ?? (error instanceof Error ? error.message : "unknown");
+    Sentry.captureException(new Error(`data error (${area}): ${pg.code ?? "no-code"} ${message}`), {
+      tags: { area, ...(pg.code ? { code: pg.code } : {}) },
+      extra: {
+        ...(pg.details ? { details: pg.details } : {}),
+        ...(pg.hint ? { hint: pg.hint } : {}),
+        ...(context ?? {}),
+      },
     });
   } catch {
-    // Telemetry must never break the crisis safety check.
+    // Telemetry must never break the caller's error handling.
   }
 }
 

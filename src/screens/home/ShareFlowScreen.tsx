@@ -7,6 +7,7 @@ import { ScreenBackground } from "@/components/ScreenBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { supabase, generateMessage, shareCheckin } from "@/lib/supabase";
+import { reportDataError } from "@/lib/sentry";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 
 type Recipient = { id: string; recipient_label: string };
@@ -23,6 +24,10 @@ export function ShareFlowScreen() {
   const { checkinId } = route.params ?? {};
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  // Distinct from "you haven't added anyone" - a failed load previously
+  // rendered identically to a genuinely empty recipients list, which for
+  // someone who DOES have people set up reads as them having vanished.
+  const [recipientsLoadError, setRecipientsLoadError] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState<Recipient | null>(null);
   const [message, setMessage] = useState("");
   const [loadingMessage, setLoadingMessage] = useState(true);
@@ -37,11 +42,15 @@ export function ShareFlowScreen() {
       // loading" class of bug as the auth bootstrap hang. Now the finally
       // always lands, and the message falls back to a safe default.
       try {
-        const [{ data: recData }, generated] = await Promise.all([
+        const [{ data: recData, error: recError }, generated] = await Promise.all([
           supabase.from("recipients").select("id, recipient_label").order("created_at", { ascending: true }),
           generateMessage(checkinId).catch(() => "Checked in today."),
         ]);
         if (cancelled) return;
+        if (recError) {
+          reportDataError(recError, "share-recipients-load");
+          setRecipientsLoadError(true);
+        }
         setRecipients(recData ?? []);
         setMessage(generated);
       } catch {
@@ -156,8 +165,9 @@ export function ShareFlowScreen() {
             {recipients.length === 0 ? (
               <View style={[styles.noRecipientsCard, { backgroundColor: theme.surface + "F0", borderColor: theme.border }]}>
                 <Text style={{ color: theme.textMuted, marginBottom: spacing.sm }}>
-                  You haven't added anyone yet - add someone to let them know how you're doing, or keep this
-                  just for you.
+                  {recipientsLoadError
+                    ? "We couldn't load your recipients just now - you can still keep this just for you, or check Settings > Shared with once you're back online."
+                    : "You haven't added anyone yet - add someone to let them know how you're doing, or keep this just for you."}
                 </Text>
                 <Pressable
                   onPress={goAddRecipient}

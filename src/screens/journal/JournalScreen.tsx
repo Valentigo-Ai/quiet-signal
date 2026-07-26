@@ -9,6 +9,7 @@ import { ScreenBackground } from "@/components/ScreenBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
+import { reportDataError } from "@/lib/sentry";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 
 type Entry = { id: string; date: string; entry_text: string; flagged_crisis: boolean };
@@ -29,19 +30,31 @@ export function JournalScreen() {
   // box (the actual point of this screen) as the thing someone sees first
   // instead of a wall of old entries.
   const [showEntries, setShowEntries] = useState(false);
+  // Distinct from "no entries yet" - a failed load must say so rather than
+  // showing an empty list that reads as "you've never written anything"
+  // (same class of bug as History's 2026-07-26 silent-400 incident).
+  const [loadError, setLoadError] = useState(false);
 
   const loadEntries = async () => {
     // Guarded (2026-07-24 review): a network-level throw here was an
     // unhandled rejection. Keeping whatever entries are already shown beats
     // crashing or clearing the list.
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("journal_entries")
         .select("id, date, entry_text, flagged_crisis")
         .order("date", { ascending: false })
         .limit(30);
+      if (error) {
+        reportDataError(error, "journal-load");
+        setLoadError(true);
+        return;
+      }
+      setLoadError(false);
       setEntries(data ?? []);
-    } catch {
+    } catch (e) {
+      reportDataError(e, "journal-load");
+      setLoadError(true);
       // best-effort list refresh - leave existing entries in place
     }
   };
@@ -63,6 +76,7 @@ export function JournalScreen() {
         entry_text: text.trim(),
       });
       if (error) {
+        reportDataError(error, "journal-save");
         Alert.alert("Couldn't save", error.message);
         return;
       }
@@ -71,6 +85,7 @@ export function JournalScreen() {
     } catch (e: any) {
       // Same guard as CheckInScreen's save (2026-07-24 review): a network
       // throw must not silently swallow a journal entry save.
+      reportDataError(e, "journal-save");
       Alert.alert("Couldn't save", e?.message ?? "Please check your connection and try again.");
     } finally {
       setSaving(false);
@@ -138,7 +153,16 @@ export function JournalScreen() {
           <Ionicons name={showEntries ? "chevron-up" : "chevron-down"} size={20} color={theme.textMuted} />
         </Pressable>
 
-        {showEntries ? (
+        {showEntries && loadError ? (
+          <View style={[styles.entryRow, { borderColor: theme.border, backgroundColor: theme.surface + "D9" }]}>
+            <Text style={{ color: theme.textMuted, marginBottom: spacing.sm }}>
+              We couldn't load your saved entries just now.
+            </Text>
+            <Pressable onPress={loadEntries} style={{ minHeight: theme.minTouchTarget, justifyContent: "center" }}>
+              <Text style={{ color: theme.primary, fontWeight: "600" }}>Try again</Text>
+            </Pressable>
+          </View>
+        ) : showEntries ? (
           <FlatList
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: tabBarHeight + spacing.xl }}

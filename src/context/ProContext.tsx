@@ -9,6 +9,7 @@ import Purchases, {
 import type { ProPlanId } from "@/constants/proPricing";
 import { hasProEntitlement, deriveIsPro } from "@/lib/proEntitlement";
 import { supabase } from "@/lib/supabase";
+import { reportDataError } from "@/lib/sentry";
 
 // ---------------------------------------------------------------------------
 // Pro / entitlement layer, backed by RevenueCat (react-native-purchases).
@@ -143,7 +144,11 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
           };
 
           // Identify from any restored session first, then track auth changes.
-          const { data: sessionData } = await supabase.auth.getSession();
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+          // Falls back to the anonymous-customer path below, same as a
+          // genuinely signed-out user - safe, but worth knowing about if it
+          // means RevenueCat isn't getting identified to the right account.
+          if (sessionError) reportDataError(sessionError, "pro-session-lookup");
           const initialUserId = sessionData.session?.user?.id ?? null;
           if (initialUserId) {
             await syncIdentity(initialUserId);

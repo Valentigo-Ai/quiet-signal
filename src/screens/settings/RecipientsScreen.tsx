@@ -7,6 +7,7 @@ import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
+import { reportDataError } from "@/lib/sentry";
 import { normalisePhone } from "@/lib/phone";
 import { spacing, fontSizes, radii } from "@/lib/theme";
 
@@ -22,13 +23,24 @@ export function RecipientsScreen() {
   const [label, setLabel] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
+  // Distinct from "you have no recipients" - a failed load must not render
+  // as an empty list, the same class of silent lie as History's 2026-07-26
+  // incident (someone with real recipients would see none, and might add a
+  // duplicate believing they'd been removed).
+  const [loadError, setLoadError] = useState(false);
   const atFreeLimit = !isPro && recipients.length >= FREE_MAX_RECIPIENTS;
 
   const load = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("recipients")
       .select("id, recipient_label, contact_method, contact_value")
       .order("created_at", { ascending: true });
+    if (error) {
+      reportDataError(error, "recipients-load");
+      setLoadError(true);
+      return;
+    }
+    setLoadError(false);
     setRecipients(data ?? []);
   };
 
@@ -62,6 +74,7 @@ export function RecipientsScreen() {
         contact_value: normalised.e164,
       });
       if (error) {
+        reportDataError(error, "recipient-add");
         Alert.alert("Couldn't add", error.message);
         return;
       }
@@ -74,7 +87,15 @@ export function RecipientsScreen() {
   };
 
   const handleRemove = async (id: string) => {
-    await supabase.from("recipients").delete().eq("id", id);
+    const { error } = await supabase.from("recipients").delete().eq("id", id);
+    if (error) {
+      // Previously unchecked - Remove would silently do nothing and the
+      // person would have no way to tell a real failure apart from having
+      // tapped the wrong thing.
+      reportDataError(error, "recipient-remove");
+      Alert.alert("Couldn't remove", "Please try again.");
+      return;
+    }
     await load();
   };
 
@@ -105,6 +126,16 @@ export function RecipientsScreen() {
           </View>
         ) : null}
         <PrimaryButton label={atFreeLimit ? "Upgrade to add more" : "Add"} onPress={handleAdd} loading={saving} />
+        {loadError ? (
+          <View style={{ marginTop: spacing.md }}>
+            <Text style={{ color: theme.textMuted, marginBottom: spacing.sm }}>
+              We couldn't load your recipients just now.
+            </Text>
+            <Pressable onPress={load} style={{ minHeight: theme.minTouchTarget, justifyContent: "center" }}>
+              <Text style={{ color: theme.primary, fontWeight: "600" }}>Try again</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <FlatList

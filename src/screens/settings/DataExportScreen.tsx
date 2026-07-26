@@ -10,6 +10,7 @@ import * as Sharing from "expo-sharing";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
+import { reportDataError } from "@/lib/sentry";
 import { spacing, fontSizes } from "@/lib/theme";
 
 // Section 4.7 / 11.1 - full data export, builds trust that the app won't
@@ -37,17 +38,34 @@ export function DataExportScreen() {
       // shared_messages is filtered by checkin id, so it has to wait for
       // checkins to come back first - can't all run in one Promise.all
       // (that was the bug: it referenced checkins before it existed).
-      const [{ data: checkins }, { data: journal }, { data: recipients }] = await Promise.all([
+      const [
+        { data: checkins, error: checkinsError },
+        { data: journal, error: journalError },
+        { data: recipients, error: recipientsError },
+      ] = await Promise.all([
         supabase.from("checkins").select("*").eq("user_id", userId),
         supabase.from("journal_entries").select("*").eq("user_id", userId),
         supabase.from("recipients").select("*").eq("user_id", userId),
       ]);
 
       const checkinIds: string[] = (checkins ?? []).map((c: { id: string }) => c.id);
-      const { data: shared } = await supabase
+      const { data: shared, error: sharedError } = await supabase
         .from("shared_messages")
         .select("id, message_text, sent_at, checkin_id, recipient_id")
         .in("checkin_id", checkinIds);
+
+      // None of these four results used to be checked for an error at all -
+      // any one of them failing (e.g. an RLS refusal on just one table)
+      // would silently produce a "full" export missing that section, which
+      // is exactly the trust the export promise is built on. Whole-export
+      // failure is the honest outcome here, not a partial file that looks
+      // complete.
+      const firstError = checkinsError ?? journalError ?? recipientsError ?? sharedError;
+      if (firstError) {
+        reportDataError(firstError, "data-export");
+        Alert.alert("Export incomplete", "We couldn't gather all of your data just now - please try again in a moment.");
+        return;
+      }
 
       const bundle = {
         exported_at: new Date().toISOString(),

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
-import { reportCrisisCheckError } from "@/lib/sentry";
+import { reportDataError } from "@/lib/sentry";
 
 export const LAST_ACK_KEY = "quiet-signal:last-crisis-ack";
 
@@ -59,8 +59,8 @@ export function useCrisisCheck() {
       // screen. Report it and default to showing the screen on
       // uncertainty - a false-positive prompt costs a dismiss tap; a
       // false negative could hide a real flag.
-      if (journal.error) reportCrisisCheckError(journal.error, "journal");
-      if (checkins.error) reportCrisisCheckError(checkins.error, "checkins");
+      if (journal.error) reportDataError(journal.error, "crisis-check", { source: "journal" });
+      if (checkins.error) reportDataError(checkins.error, "crisis-check", { source: "checkins" });
 
       const hasFlag =
         Boolean(journal.error) ||

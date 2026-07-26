@@ -10,6 +10,7 @@ import { ScreenBackground } from "@/components/ScreenBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { supabase } from "@/lib/supabase";
 import { downloadCheckinPdfReport, ReportRow } from "@/lib/pdfReport";
+import { reportDataError } from "@/lib/sentry";
 import { PAIN_LABELS, ANXIETY_LABELS, PTSD_LABELS, ENERGY_LABELS } from "@/constants/scaleLabels";
 import { spacing, fontSizes, radii, fonts, cardShadow } from "@/lib/theme";
 
@@ -142,6 +143,11 @@ export function HistoryScreen() {
   const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
   const [range, setRange] = useState<(typeof RANGES)[number]>(7);
   const [checkins, setCheckins] = useState<Checkin[]>([]);
+  // Distinct from `checkins.length === 0`: a load failure must never render
+  // as "No check-ins in this range yet" (2026-07-26 - a ptsd_score schema
+  // mismatch once made every History load 400, and someone with months of
+  // real history saw an empty screen with nothing telling them it was wrong).
+  const [loadError, setLoadError] = useState(false);
   const [downloading, setDownloading] = useState(false);
   // The day-by-day list is collapsed by default (Richard's request, July
   // 2026): seeing every logged day laid out on screen at once can itself
@@ -150,17 +156,26 @@ export function HistoryScreen() {
   // tap away, so the choice to look is always the person's, not the app's.
   const [showList, setShowList] = useState(false);
 
+  const loadCheckins = async () => {
+    const since = new Date();
+    since.setDate(since.getDate() - range);
+    const { data, error } = await supabase
+      .from("checkins")
+      .select("id, date, pain_score, anxiety_score, ptsd_score, energy_score, note")
+      .gte("date", since.toISOString().slice(0, 10))
+      .order("date", { ascending: true });
+    if (error) {
+      reportDataError(error, "history-load");
+      setLoadError(true);
+      return;
+    }
+    setLoadError(false);
+    setCheckins(data ?? []);
+  };
+
   useEffect(() => {
-    (async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - range);
-      const { data } = await supabase
-        .from("checkins")
-        .select("id, date, pain_score, anxiety_score, ptsd_score, energy_score, note")
-        .gte("date", since.toISOString().slice(0, 10))
-        .order("date", { ascending: true });
-      setCheckins(data ?? []);
-    })();
+    loadCheckins();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
 
   // Plain-language trend sentence - PDF report only, never shown on screen
@@ -327,7 +342,16 @@ export function HistoryScreen() {
           })}
         </ScrollView>
 
-        {checkins.length === 0 ? (
+        {loadError ? (
+          <TextOnPhoto style={{ margin: spacing.lg, alignSelf: "flex-start" }}>
+            <Text style={{ color: theme.textMuted, marginBottom: spacing.sm }}>
+              We couldn't load your history just now.
+            </Text>
+            <Pressable onPress={loadCheckins} style={{ minHeight: theme.minTouchTarget, justifyContent: "center" }}>
+              <Text style={{ color: theme.primary, fontWeight: "600" }}>Try again</Text>
+            </Pressable>
+          </TextOnPhoto>
+        ) : checkins.length === 0 ? (
           <TextOnPhoto style={{ margin: spacing.lg, alignSelf: "flex-start" }}>
             <Text style={{ color: theme.textMuted }}>No check-ins in this range yet.</Text>
           </TextOnPhoto>

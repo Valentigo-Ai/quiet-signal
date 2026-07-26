@@ -5,6 +5,7 @@ import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { reportDataError } from "@/lib/sentry";
 import { spacing, fontSizes } from "@/lib/theme";
 
 // Section 4.7 / 11.1 - genuinely easy account/data deletion. Deleting the
@@ -34,6 +35,7 @@ export function DeleteAccountScreen() {
               if (error) throw error;
               await signOut();
             } catch (e: any) {
+              reportDataError(e, "delete-account");
               Alert.alert("Couldn't delete account", e.message ?? String(e));
             } finally {
               setLoading(false);

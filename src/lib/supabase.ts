@@ -2,6 +2,7 @@ import "react-native-url-polyfill/auto";
 import { Platform, AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient, type Session } from "@supabase/supabase-js";
+import { reportDataError } from "@/lib/sentry";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL as string;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
@@ -113,7 +114,13 @@ export async function generateMessage(checkinId: string): Promise<string> {
   const { data, error } = await supabase.functions.invoke("generate-message", {
     body: { checkin_id: checkinId },
   });
-  if (error) throw error;
+  if (error) {
+    // Reported here rather than at each call site so every current and
+    // future caller of this helper is covered by one report, the same way
+    // the throw itself already is.
+    reportDataError(error, "generate-message");
+    throw error;
+  }
   return data.message as string;
 }
 
@@ -129,6 +136,9 @@ export async function shareCheckin(params: {
       message_text: params.messageText,
     },
   });
-  if (error) throw error;
+  if (error) {
+    reportDataError(error, "share-checkin");
+    throw error;
+  }
   return data as { shared_message_id: string; view_url: string; delivery: unknown };
 }

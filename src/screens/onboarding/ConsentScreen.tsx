@@ -6,6 +6,7 @@ import { useAppTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
+import { reportDataError } from "@/lib/sentry";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 import { HEALTH_DATA_CONSENT_COPY, AGE_GATE_COPY, CONSENT_VERSION } from "@/constants/legalCopy";
 
@@ -61,6 +62,7 @@ export function ConsentScreen() {
       await refreshConsentStatus();
       navigation.navigate("AddFirstRecipient");
     } catch (e: any) {
+      reportDataError(e, "consent-save");
       Alert.alert("Couldn't save", e.message ?? String(e));
     } finally {
       setSaving(false);
