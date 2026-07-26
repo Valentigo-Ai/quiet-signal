@@ -88,6 +88,25 @@ export function reportSplashHideFailure(
   }
 }
 
+// Reports a failed read in useCrisisCheck (journal_entries/checkins query
+// for an unacknowledged flagged_crisis row). This gates whether the
+// auto-surfaced Crisis Resources screen appears on app open, so a silently
+// swallowed error here is a safety-net gap, not just a UX bug - the caller
+// must treat any report from this function as "uncertain, so show the
+// screen" rather than "no flag found". PII-free: PostgrestError messages
+// describe the query/schema, never row content. Safe to call when Sentry is
+// disabled (dev) - capture is a no-op.
+export function reportCrisisCheckError(err: unknown, source: "journal" | "checkins"): void {
+  try {
+    const message = err instanceof Error ? err.message : (err as { message?: string })?.message;
+    Sentry.captureException(new Error(`crisis check query failed: ${message ?? "unknown"}`), {
+      tags: { area: "crisis-check", source },
+    });
+  } catch {
+    // Telemetry must never break the crisis safety check.
+  }
+}
+
 // Breadcrumb marking that RootNavigator's NavigationContainer onReady
 // actually fired. On its own this reports nothing - it just gives a stuck-
 // splash Sentry event (captured by the app-failsafe-12s report, or a later

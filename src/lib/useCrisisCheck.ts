@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
+import { reportCrisisCheckError } from "@/lib/sentry";
 
 export const LAST_ACK_KEY = "quiet-signal:last-crisis-ack";
 
@@ -52,9 +53,20 @@ export function useCrisisCheck() {
           .limit(1),
       ]);
 
+      // A read error here is silent-failure-shaped: swallowing it would
+      // mean "couldn't check" reads identically to "checked, nothing
+      // found," and this check is what gates the auto-surfaced crisis
+      // screen. Report it and default to showing the screen on
+      // uncertainty - a false-positive prompt costs a dismiss tap; a
+      // false negative could hide a real flag.
+      if (journal.error) reportCrisisCheckError(journal.error, "journal");
+      if (checkins.error) reportCrisisCheckError(checkins.error, "checkins");
+
       const hasFlag =
-        (!journal.error && (journal.data?.length ?? 0) > 0) ||
-        (!checkins.error && (checkins.data?.length ?? 0) > 0);
+        Boolean(journal.error) ||
+        Boolean(checkins.error) ||
+        (journal.data?.length ?? 0) > 0 ||
+        (checkins.data?.length ?? 0) > 0;
 
       if (cancelled || !hasFlag) return;
 
