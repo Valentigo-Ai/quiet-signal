@@ -45,6 +45,14 @@ export function ConsentScreen() {
         user_id: session.user.id,
         presenting_concerns: presentingConcerns,
         presenting_concerns_other: presentingConcernsOther || null,
+        // "Continue" and "Skip for now" on WhatAreYouDealingWithScreen both
+        // arrive here with the same params, so a non-empty list is the only
+        // signal that the question was actually answered rather than skipped.
+        // Skipping therefore leaves the flag false and keeps the historic
+        // Anxiety fallback in CheckInScreen; only Settings sets it
+        // unconditionally, because pressing Save there is explicit even when
+        // the result is empty.
+        presenting_concerns_set: presentingConcerns.length > 0,
         age_confirmed: ageConfirmed,
         consent_given_at: consentGivenAt,
         consent_version: CONSENT_VERSION,

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Text, TextInput, StyleSheet, Alert } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
@@ -36,37 +36,49 @@ export function CheckInScreen() {
   useCrisisCheck(); // Flow D - runs quietly on every home screen open
 
   // Which optional check-in blocks to show, driven by what the person
-  // selected on WhatAreYouDealingWithScreen (profiles.presenting_concerns).
-  // Starts empty - indistinguishable from "hasn't loaded yet" and "loaded,
-  // nothing selected," which is fine because both resolve to the exact same
-  // default below, so there's no separate loading state to juggle.
+  // selected on WhatAreYouDealingWithScreen and can now edit any time in
+  // Settings -> "What you're tracking" (WhatYoureTrackingScreen).
+  //
+  // `answered` is profiles.presenting_concerns_set, not `concerns.length > 0`:
+  // once the list is editable, an empty array has two very different meanings
+  // (skipped onboarding vs. deliberately unticked everything) and only the
+  // flag tells them apart. Both start falsy, which is the same as "hasn't
+  // loaded yet" - fine, because that resolves to the identical fallback
+  // below, so there's still no separate loading state to juggle.
   const [concerns, setConcerns] = useState<string[]>([]);
+  const [answered, setAnswered] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!session?.user.id) return;
-      const { data } = await supabase
-        .from("profiles")
-        .select("presenting_concerns")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-      if (!cancelled) setConcerns(data?.presenting_concerns ?? []);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [session?.user.id]);
+  // useFocusEffect rather than a mount-only useEffect: Settings lives in a
+  // different tab, so without a re-read on focus someone could untick PTSD,
+  // come straight back here, and still be asked for a PTSD score until they
+  // restarted the app - which would read as the change not having saved.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        if (!session?.user.id) return;
+        const { data } = await supabase
+          .from("profiles")
+          .select("presenting_concerns, presenting_concerns_set")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        if (cancelled) return;
+        setConcerns(data?.presenting_concerns ?? []);
+        setAnswered(data?.presenting_concerns_set ?? false);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [session?.user.id])
+  );
 
   // Default/fallback (skipped onboarding, or an existing user who onboarded
   // before this feature existed): show Anxiety only, matching the app's
-  // check-in behavior before this split. Once a person HAS made a real
-  // selection, it's authoritative even if that means showing neither block
-  // (e.g. "Chronic pain" alone) - only the true no-selection case falls
-  // back to the old default.
-  const madeSelection = concerns.length > 0;
-  const showAnxiety = madeSelection ? concerns.includes("anxiety") : true;
-  const showPtsd = madeSelection ? concerns.includes("ptsd") : false;
+  // check-in behavior before this split. Once a person HAS explicitly
+  // answered, that answer is authoritative even when it means showing
+  // neither block - "Chronic pain" alone, or nothing ticked at all.
+  const showAnxiety = answered ? concerns.includes("anxiety") : true;
+  const showPtsd = answered ? concerns.includes("ptsd") : false;
 
   // Starts unselected each time the screen mounts - nothing pre-highlighted
   // until the person actively taps a choice for that day (Section 4.2:

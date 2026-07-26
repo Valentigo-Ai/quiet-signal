@@ -94,7 +94,9 @@ the website domain, so they're unaffected by this.
 ## Play Console "Data safety" form - what to declare
 Based on what the app actually collects (see `src/constants/legalCopy.ts` and the Supabase schema):
 
-- **Health & fitness data**: yes - pain, anxiety/PTSD, and energy scores, and journal entries.
+- **Health & fitness data**: yes - pain, anxiety, PTSD and energy scores, and journal entries.
+  (Anxiety and PTSD were one combined score until July 2026; they are now two separate optional
+  scores, so this line lists four dimensions rather than three.)
 - **Personal info**: email address (for the account).
 - **App activity**: check-in history, in-app actions (for the app's own history/trends feature -
   not for tracking or advertising).

@@ -28,6 +28,7 @@ import { PrivacyNoticeScreen } from "@/screens/settings/PrivacyNoticeScreen";
 import { DataExportScreen } from "@/screens/settings/DataExportScreen";
 import { DeleteAccountScreen } from "@/screens/settings/DeleteAccountScreen";
 import { BackgroundsScreen } from "@/screens/settings/BackgroundsScreen";
+import { WhatYoureTrackingScreen } from "@/screens/settings/WhatYoureTrackingScreen";
 import { UpgradeScreen } from "@/screens/pro/UpgradeScreen";
 
 const OnboardingStack = createNativeStackNavigator();
@@ -88,6 +89,11 @@ function SettingsNavigator() {
       <SettingsStack.Screen name="SettingsHome" component={SettingsScreen} options={{ title: "Settings" }} />
       <SettingsStack.Screen name="Recipients" component={RecipientsScreen} options={{ title: "Shared with" }} />
       <SettingsStack.Screen name="Backgrounds" component={BackgroundsScreen} options={{ title: "Backgrounds" }} />
+      <SettingsStack.Screen
+        name="WhatYoureTracking"
+        component={WhatYoureTrackingScreen}
+        options={{ title: "What you're tracking" }}
+      />
       <SettingsStack.Screen name="PrivacyNotice" component={PrivacyNoticeScreen} options={{ title: "Privacy Notice" }} />
       <SettingsStack.Screen name="DataExport" component={DataExportScreen} options={{ title: "Export my data" }} />
       <SettingsStack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ title: "Delete account" }} />

@@ -5,19 +5,15 @@ import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
+import { PRESENTING_CONCERN_OPTIONS, PRESENTING_CONCERNS_BLURB } from "@/constants/presentingConcerns";
 
 // "What are you dealing with?" - Section 4.1. Optional, skippable,
 // multi-select. Gates which optional check-in blocks appear (Anxiety,
 // PTSD - see CheckInScreen.tsx) and lightly tailors in-app language; never
-// shown to recipients. "Anxiety" and "PTSD" are independent, separately-
-// selectable options rather than a combined "PTSD / anxiety" + "Both"
-// (July 2026 split) - with real checkboxes, ticking both individual boxes
-// already covers "both", so a third option for it would be redundant.
-const OPTIONS = [
-  { key: "chronic_pain", label: "Chronic pain" },
-  { key: "anxiety", label: "Anxiety" },
-  { key: "ptsd", label: "PTSD" },
-];
+// shown to recipients. The options themselves now live in
+// @/constants/presentingConcerns because Settings -> "What you're tracking"
+// (WhatYoureTrackingScreen) offers the exact same choices for editing later,
+// and the two lists drifting apart would be a silent, confusing bug.
 
 export function WhatAreYouDealingWithScreen() {
   const { theme } = useAppTheme();
@@ -36,12 +32,16 @@ export function WhatAreYouDealingWithScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={[styles.title, { color: theme.text }]}>What are you dealing with?</Text>
+      <Text style={[styles.subtitle, { color: theme.textMuted }]}>{PRESENTING_CONCERNS_BLURB}</Text>
+      {/* Says up front that this isn't a one-shot decision. People answering
+          this question are often unsure whether something "counts" as
+          applying to them, and knowing it's reversible makes it much easier
+          to tick a box now rather than freeze on it. */}
       <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-        Totally optional. This just helps us use the right words for you - it's never shown to anyone
-        you share with.
+        You can change this any time in Settings.
       </Text>
 
-      {OPTIONS.map((opt) => {
+      {PRESENTING_CONCERN_OPTIONS.map((opt) => {
         const isSelected = selected.includes(opt.key);
         return (
           <Pressable

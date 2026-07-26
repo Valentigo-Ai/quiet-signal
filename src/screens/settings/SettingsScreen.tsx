@@ -59,6 +59,22 @@ export function SettingsScreen() {
         )}
 
         <TextOnPhoto style={styles.sectionPill}>
+          <Text style={[styles.section, { color: theme.textMuted }]}>YOUR CHECK-IN</Text>
+        </TextOnPhoto>
+        {/* The onboarding question this edits used to be a one-time,
+            unchangeable answer, which is a bad fit for something as fluid as
+            what a person is dealing with. Sits above SHARING because it
+            changes the daily check-in itself, which is the part of the app
+            people actually touch every day. The subtitle names the three
+            options outright so this row is findable by someone who only
+            remembers "I picked PTSD somewhere during setup". */}
+        <Row
+          label="What you're tracking"
+          subtitle="Add or remove chronic pain, anxiety or PTSD - changes what your daily check-in asks"
+          onPress={() => navigation.navigate("WhatYoureTracking")}
+        />
+
+        <TextOnPhoto style={styles.sectionPill}>
           <Text style={[styles.section, { color: theme.textMuted }]}>SHARING</Text>
         </TextOnPhoto>
         {/* Discoverability fix: this used to just say "Manage shared

@@ -48,6 +48,9 @@ export function SignUpScreen() {
           user_id: userId,
           presenting_concerns: presentingConcerns,
           presenting_concerns_other: presentingConcernsOther || null,
+          // Non-empty means the question was answered rather than skipped -
+          // see the matching note in ConsentScreen.
+          presenting_concerns_set: presentingConcerns.length > 0,
           age_confirmed: ageConfirmed,
           consent_given_at: consentGivenAt ?? new Date().toISOString(),
           consent_version: CONSENT_VERSION,
