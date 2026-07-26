@@ -7,7 +7,8 @@ export const CONSENT_VERSION = "2026-07-06-v2";
 export const HEALTH_DATA_CONSENT_COPY = `Quiet Signal asks you to log some personal health information so it can work:
 
 - Pain level
-- Anxiety / PTSD state
+- Anxiety level
+- PTSD level, if you tell us during setup that it applies to you
 - Energy level
 - Anything you write in your optional journal
 
@@ -47,11 +48,11 @@ export function getCrisisSafetyDisclaimer(info: CountryCrisisInfo): string {
 
 export const PRIVACY_NOTICE_MARKDOWN = `# Quiet Signal Privacy Notice
 
-**Last updated:** 23 July 2026
+**Last updated:** 26 July 2026
 
 ## What we collect
-Your account email, your daily check-in scores (pain, anxiety/PTSD state, energy), any optional notes
-or journal entries you write, and the list of people you choose to share with.
+Your account email, your daily check-in scores (pain, anxiety, optionally PTSD, energy), any optional
+notes or journal entries you write, and the list of people you choose to share with.
 
 ## Why we collect it
 Purely so the app can work: show your own history, generate the messages you choose to share, and run

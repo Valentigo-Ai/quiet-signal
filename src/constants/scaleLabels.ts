@@ -18,6 +18,21 @@ export const ANXIETY_LABELS: [string, string, string, string, string] = [
   "Very anxious",
   "Overwhelmed",
 ];
+// Split out from the combined "Anxiety/PTSD" scale (July 2026) into its own
+// optional dimension - see WhatAreYouDealingWithScreen.tsx and
+// profiles.presenting_concerns. Deliberately not a copy of ANXIETY_LABELS:
+// PTSD's check-in question is about hyperarousal/trauma-response intensity
+// (being on guard, keyed up, triggered by a reminder, flooded), not general
+// worry - reusing "Anxious"/"Overwhelmed" wording would blur two different
+// experiences into the same words. Kept plain-language and non-clinical,
+// matching the tone of every other scale here.
+export const PTSD_LABELS: [string, string, string, string, string] = [
+  "Grounded",
+  "A little on alert",
+  "Keyed up",
+  "Triggered",
+  "Flooded",
+];
 // 0 = Great, 4 = Very low - matches PAIN_LABELS/ANXIETY_LABELS where 4 is
 // always "the concerning end" (Severe, Overwhelmed). Energy used to run the
 // other way (4 = Great) since it measures a good thing rather than a bad

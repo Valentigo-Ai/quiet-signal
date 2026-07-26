@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Text, TextInput, StyleSheet, Alert } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
+import { useAuth } from "@/context/AuthContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { CrisisBanner } from "@/components/CrisisBanner";
 import { ScaleInput } from "@/components/ScaleInput";
@@ -12,7 +13,7 @@ import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { supabase } from "@/lib/supabase";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 import { useCrisisCheck } from "@/lib/useCrisisCheck";
-import { PAIN_LABELS, ANXIETY_LABELS, ENERGY_LABELS } from "@/constants/scaleLabels";
+import { PAIN_LABELS, ANXIETY_LABELS, PTSD_LABELS, ENERGY_LABELS } from "@/constants/scaleLabels";
 
 // Time-aware greeting (July 2026, matches the website's hero mockup):
 // "Good morning/afternoon/evening" plus a day/tonight-phrased question.
@@ -29,22 +30,62 @@ function getGreeting(): { greeting: string; question: string } {
 // returning user - three tap-scales, optional note, one button.
 export function CheckInScreen() {
   const { theme } = useAppTheme();
+  const { session } = useAuth();
   const navigation = useNavigation<any>();
   const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
   useCrisisCheck(); // Flow D - runs quietly on every home screen open
+
+  // Which optional check-in blocks to show, driven by what the person
+  // selected on WhatAreYouDealingWithScreen (profiles.presenting_concerns).
+  // Starts empty - indistinguishable from "hasn't loaded yet" and "loaded,
+  // nothing selected," which is fine because both resolve to the exact same
+  // default below, so there's no separate loading state to juggle.
+  const [concerns, setConcerns] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!session?.user.id) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("presenting_concerns")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      if (!cancelled) setConcerns(data?.presenting_concerns ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user.id]);
+
+  // Default/fallback (skipped onboarding, or an existing user who onboarded
+  // before this feature existed): show Anxiety only, matching the app's
+  // check-in behavior before this split. Once a person HAS made a real
+  // selection, it's authoritative even if that means showing neither block
+  // (e.g. "Chronic pain" alone) - only the true no-selection case falls
+  // back to the old default.
+  const madeSelection = concerns.length > 0;
+  const showAnxiety = madeSelection ? concerns.includes("anxiety") : true;
+  const showPtsd = madeSelection ? concerns.includes("ptsd") : false;
 
   // Starts unselected each time the screen mounts - nothing pre-highlighted
   // until the person actively taps a choice for that day (Section 4.2:
   // this should reflect a real, deliberate answer, not a leftover default).
   const [pain, setPain] = useState<number | null>(null);
   const [anxiety, setAnxiety] = useState<number | null>(null);
+  const [ptsd, setPtsd] = useState<number | null>(null);
   const [energy, setEnergy] = useState<number | null>(null);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
 
   const handleLog = async () => {
-    if (pain === null || anxiety === null || energy === null) {
-      Alert.alert("Almost there", "Please choose an option for pain, anxiety, and energy before logging today.");
+    const missingRequired =
+      pain === null ||
+      energy === null ||
+      (showAnxiety && anxiety === null) ||
+      (showPtsd && ptsd === null);
+    if (missingRequired) {
+      Alert.alert("Almost there", "Please choose an option for everything shown before logging today.");
       return;
     }
     setSaving(true);
@@ -60,7 +101,13 @@ export function CheckInScreen() {
             user_id: userId,
             date: today,
             pain_score: pain,
-            anxiety_score: anxiety,
+            // anxiety_score has no NULL column to fall back to (unlike the
+            // new ptsd_score) - when the block is hidden because the person
+            // told us it doesn't apply to them, 0 ("Calm"/none) is the
+            // correct value for a dimension they've said isn't relevant,
+            // not a placeholder guess.
+            anxiety_score: showAnxiety ? anxiety : 0,
+            ptsd_score: showPtsd ? ptsd : null,
             energy_score: energy,
             note: note || null,
           },
@@ -109,7 +156,10 @@ export function CheckInScreen() {
         </TextOnPhoto>
 
         <ScaleInput label="Pain" value={pain} onChange={setPain} scaleLabels={PAIN_LABELS} />
-        <ScaleInput label="Anxiety / PTSD state" value={anxiety} onChange={setAnxiety} scaleLabels={ANXIETY_LABELS} />
+        {showAnxiety && (
+          <ScaleInput label="Anxiety" value={anxiety} onChange={setAnxiety} scaleLabels={ANXIETY_LABELS} />
+        )}
+        {showPtsd && <ScaleInput label="PTSD" value={ptsd} onChange={setPtsd} scaleLabels={PTSD_LABELS} />}
         <ScaleInput label="Energy" value={energy} onChange={setEnergy} scaleLabels={ENERGY_LABELS} />
 
         <TextOnPhoto style={{ marginBottom: spacing.sm }}>

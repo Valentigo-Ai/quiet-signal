@@ -10,7 +10,7 @@ import { ScreenBackground } from "@/components/ScreenBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { supabase } from "@/lib/supabase";
 import { downloadCheckinPdfReport, ReportRow } from "@/lib/pdfReport";
-import { PAIN_LABELS, ANXIETY_LABELS, ENERGY_LABELS } from "@/constants/scaleLabels";
+import { PAIN_LABELS, ANXIETY_LABELS, PTSD_LABELS, ENERGY_LABELS } from "@/constants/scaleLabels";
 import { spacing, fontSizes, radii, fonts, cardShadow } from "@/lib/theme";
 
 // "2026-07-07" -> "7 July" - parsed from the Y-M-D parts directly (not
@@ -40,6 +40,7 @@ type Checkin = {
   date: string;
   pain_score: number;
   anxiety_score: number;
+  ptsd_score: number | null;
   energy_score: number;
   note: string | null;
 };
@@ -60,6 +61,10 @@ type WeekBucket = {
   // clinical-sounding framing the rest of the app deliberately avoids.
   pain: number;
   anxiety: number;
+  // null if no check-in in this week has a ptsd_score (person doesn't
+  // track PTSD, or none of that week's entries had it set) - distinct from
+  // 0 ("Grounded"), which is a real logged value.
+  ptsd: number | null;
   energy: number;
 };
 
@@ -98,6 +103,12 @@ function buildWeeklyBuckets(checkins: Checkin[]): WeekBucket[] {
     const avg = (key: "pain_score" | "anxiety_score" | "energy_score") =>
       clampScore(group.reduce((sum, c) => sum + c[key], 0) / group.length);
 
+    // Averaged only over the entries that actually have a ptsd_score - a
+    // week where only some days logged it shouldn't have the rest silently
+    // counted as 0 ("Grounded"), which would understate the average.
+    const ptsdScores = group.map((c) => c.ptsd_score).filter((s): s is number => s !== null);
+    const ptsd = ptsdScores.length > 0 ? clampScore(ptsdScores.reduce((sum, s) => sum + s, 0) / ptsdScores.length) : null;
+
     const windowEnd = new Date(today);
     windowEnd.setDate(windowEnd.getDate() - idx * 7);
     const windowStart = new Date(windowEnd);
@@ -108,6 +119,7 @@ function buildWeeklyBuckets(checkins: Checkin[]): WeekBucket[] {
       count: group.length,
       pain: avg("pain_score"),
       anxiety: avg("anxiety_score"),
+      ptsd,
       energy: avg("energy_score"),
     };
   });
@@ -144,7 +156,7 @@ export function HistoryScreen() {
       since.setDate(since.getDate() - range);
       const { data } = await supabase
         .from("checkins")
-        .select("id, date, pain_score, anxiety_score, energy_score, note")
+        .select("id, date, pain_score, anxiety_score, ptsd_score, energy_score, note")
         .gte("date", since.toISOString().slice(0, 10))
         .order("date", { ascending: true });
       setCheckins(data ?? []);
@@ -220,9 +232,10 @@ export function HistoryScreen() {
 
     const trendPhrase = trendSummary ?? "Not quite enough check-ins yet to show a trend.";
 
+    const ptsdPhrase = last.ptsd_score !== null ? `, ptsd ${PTSD_LABELS[last.ptsd_score]}` : "";
     const dayPhrase = `That day: pain ${PAIN_LABELS[last.pain_score]}, anxiety ${
       ANXIETY_LABELS[last.anxiety_score]
-    }, energy ${ENERGY_LABELS[last.energy_score]}.`;
+    }${ptsdPhrase}, energy ${ENERGY_LABELS[last.energy_score]}.`;
 
     const lines: string[] = [];
     lines.push(`Quiet Signal check-in summary — last ${range} days`);
@@ -257,6 +270,7 @@ export function HistoryScreen() {
             date: w.label,
             pain_score: w.pain,
             anxiety_score: w.anxiety,
+            ptsd_score: w.ptsd,
             energy_score: w.energy,
             note: null,
           }))
@@ -388,7 +402,8 @@ export function HistoryScreen() {
                       {item.label} ({item.count} check-in{item.count === 1 ? "" : "s"})
                     </Text>
                     <Text style={{ color: theme.textMuted }}>
-                      Pain {PAIN_LABELS[item.pain]} · Anxiety/PTSD {ANXIETY_LABELS[item.anxiety]} · Energy{" "}
+                      Pain {PAIN_LABELS[item.pain]} · Anxiety {ANXIETY_LABELS[item.anxiety]}
+                      {item.ptsd !== null ? ` · PTSD ${PTSD_LABELS[item.ptsd]}` : ""} · Energy{" "}
                       {ENERGY_LABELS[item.energy]}
                     </Text>
                   </View>
@@ -404,7 +419,8 @@ export function HistoryScreen() {
                   <View style={[styles.row, { borderColor: theme.border, backgroundColor: theme.surface + "E6" }]}>
                     <Text style={{ color: theme.text, fontWeight: "600" }}>{item.date}</Text>
                     <Text style={{ color: theme.textMuted }}>
-                      Pain {item.pain_score} · Anxiety/PTSD {item.anxiety_score} · Energy {item.energy_score}
+                      Pain {item.pain_score} · Anxiety {item.anxiety_score}
+                      {item.ptsd_score !== null ? ` · PTSD ${item.ptsd_score}` : ""} · Energy {item.energy_score}
                     </Text>
                     {item.note ? <Text style={{ color: theme.textMuted, fontStyle: "italic" }}>{item.note}</Text> : null}
                   </View>

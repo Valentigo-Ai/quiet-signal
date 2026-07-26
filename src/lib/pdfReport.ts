@@ -6,6 +6,11 @@ export type ReportRow = {
   date: string;
   pain_score: number;
   anxiety_score: number;
+  // null for rows/periods with no PTSD data - most users, since it's only
+  // ever collected from people who told us PTSD applies to them (see
+  // CheckInScreen.tsx). The PTSD column/line only render at all if at
+  // least one row in the export has a value.
+  ptsd_score: number | null;
   energy_score: number;
   note: string | null;
 };
@@ -22,6 +27,11 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
   const { rangeLabel, summaryText, rows, periodLabel = "Date" } = opts;
   const generatedAt = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
+  // The PTSD column only appears at all if at least one row in this export
+  // has it - most exports won't, since it's an optional dimension (see
+  // ReportRow) - rather than showing an all-blank column every time.
+  const hasPtsd = rows.some((r) => r.ptsd_score !== null);
+
   const tableRows = rows
     .map(
       (r) => `
@@ -29,6 +39,7 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
           <td>${r.date}</td>
           <td>${r.pain_score} / 4</td>
           <td>${r.anxiety_score} / 4</td>
+          ${hasPtsd ? `<td>${r.ptsd_score !== null ? `${r.ptsd_score} / 4` : "–"}</td>` : ""}
           <td>${r.energy_score} / 4</td>
           <td>${r.note ? escapeHtml(r.note) : ""}</td>
         </tr>`
@@ -69,7 +80,7 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
         ${chartSvg}
         <table>
           <thead>
-            <tr><th>${periodLabel}</th><th>Pain</th><th>Anxiety/PTSD</th><th>Energy</th><th>Note</th></tr>
+            <tr><th>${periodLabel}</th><th>Pain</th><th>Anxiety</th>${hasPtsd ? "<th>PTSD</th>" : ""}<th>Energy</th><th>Note</th></tr>
           </thead>
           <tbody>${tableRows}</tbody>
         </table>
@@ -95,11 +106,16 @@ function buildChartSvg(rows: ReportRow[]) {
   const h = 160;
   const pad = 8;
   const n = rows.length;
-  const toPoints = (key: "pain_score" | "anxiety_score" | "energy_score") =>
+  const hasPtsd = rows.some((r) => r.ptsd_score !== null);
+  const toPoints = (key: "pain_score" | "anxiety_score" | "energy_score" | "ptsd_score") =>
     rows
-      .map((r, i) => {
+      .map((r, i) => ({ score: r[key], i }))
+      // ptsd_score can be null for some/most rows - skip those points
+      // rather than plotting a false 0, leaving a gap the line skips over.
+      .filter((p): p is { score: number; i: number } => p.score !== null)
+      .map(({ score, i }) => {
         const x = pad + (i / Math.max(n - 1, 1)) * (w - pad * 2);
-        const y = pad + (1 - r[key] / 4) * (h - pad * 2);
+        const y = pad + (1 - score / 4) * (h - pad * 2);
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       })
       .join(" ");
@@ -111,11 +127,13 @@ function buildChartSvg(rows: ReportRow[]) {
         <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="#CDD4EE" stroke-width="1" />
         <polyline points="${toPoints("pain_score")}" fill="none" stroke="#B3413A" stroke-width="2" />
         <polyline points="${toPoints("anxiety_score")}" fill="none" stroke="#3E4C8F" stroke-width="2" stroke-dasharray="6,4" />
+        ${hasPtsd ? `<polyline points="${toPoints("ptsd_score")}" fill="none" stroke="#7A4FBF" stroke-width="2" stroke-dasharray="8,3,2,3" />` : ""}
         <polyline points="${toPoints("energy_score")}" fill="none" stroke="#2F6B55" stroke-width="2" stroke-dasharray="1,4" stroke-linecap="round" />
       </svg>
       <div class="legend">
         <span><span class="dot" style="background:#B3413A"></span>Pain (solid)</span>
-        <span><span class="dot" style="background:#3E4C8F"></span>Anxiety/PTSD (dashed)</span>
+        <span><span class="dot" style="background:#3E4C8F"></span>Anxiety (dashed)</span>
+        ${hasPtsd ? `<span><span class="dot" style="background:#7A4FBF"></span>PTSD (dash-dot)</span>` : ""}
         <span><span class="dot" style="background:#2F6B55"></span>Energy (dotted)</span>
       </div>
       <div class="legend-dates"><span>${escapeHtml(rows[0].date)}</span><span>${escapeHtml(rows[rows.length - 1].date)}</span></div>

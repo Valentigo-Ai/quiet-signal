@@ -6,12 +6,17 @@ import { useAppTheme } from "@/context/ThemeContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 
-// "What are you dealing with?" - Section 4.1. Optional, skippable, multi-select.
-// Used only to lightly tailor in-app language; never shown to recipients.
+// "What are you dealing with?" - Section 4.1. Optional, skippable,
+// multi-select. Gates which optional check-in blocks appear (Anxiety,
+// PTSD - see CheckInScreen.tsx) and lightly tailors in-app language; never
+// shown to recipients. "Anxiety" and "PTSD" are independent, separately-
+// selectable options rather than a combined "PTSD / anxiety" + "Both"
+// (July 2026 split) - with real checkboxes, ticking both individual boxes
+// already covers "both", so a third option for it would be redundant.
 const OPTIONS = [
   { key: "chronic_pain", label: "Chronic pain" },
-  { key: "ptsd_anxiety", label: "PTSD / anxiety" },
-  { key: "both", label: "Both" },
+  { key: "anxiety", label: "Anxiety" },
+  { key: "ptsd", label: "PTSD" },
 ];
 
 export function WhatAreYouDealingWithScreen() {

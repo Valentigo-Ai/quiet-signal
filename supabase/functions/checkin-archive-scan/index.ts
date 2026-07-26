@@ -32,6 +32,7 @@ type RawCheckin = {
   date: string;
   pain_score: number;
   anxiety_score: number;
+  ptsd_score: number | null;
   energy_score: number;
   note: string | null;
 };
@@ -40,6 +41,12 @@ type MonthGroup = {
   ids: string[];
   painSum: number;
   anxietySum: number;
+  // ptsd_score is nullable and only sometimes present, unlike the other
+  // three - ptsdDays tracks how many of this group's days actually
+  // contributed to ptsdSum, since dividing by `days` would understate the
+  // average for users who do have it.
+  ptsdSum: number;
+  ptsdDays: number;
   energySum: number;
   days: number;
   notes: string[];
@@ -62,7 +69,7 @@ Deno.serve(async (req) => {
 
   const { data: oldCheckins, error } = await supabase
     .from("checkins")
-    .select("id, user_id, date, pain_score, anxiety_score, energy_score, note")
+    .select("id, user_id, date, pain_score, anxiety_score, ptsd_score, energy_score, note")
     .lt("date", cutoffStr)
     .limit(BATCH_LIMIT);
 
@@ -87,6 +94,8 @@ Deno.serve(async (req) => {
       ids: [],
       painSum: 0,
       anxietySum: 0,
+      ptsdSum: 0,
+      ptsdDays: 0,
       energySum: 0,
       days: 0,
       notes: [],
@@ -94,6 +103,10 @@ Deno.serve(async (req) => {
     g.ids.push(c.id);
     g.painSum += c.pain_score;
     g.anxietySum += c.anxiety_score;
+    if (c.ptsd_score !== null) {
+      g.ptsdSum += c.ptsd_score;
+      g.ptsdDays += 1;
+    }
     g.energySum += c.energy_score;
     g.days += 1;
     if (c.note) g.notes.push(c.note);
@@ -112,7 +125,7 @@ Deno.serve(async (req) => {
     // days individually cross the 90-day mark.
     const { data: existing } = await supabase
       .from("checkin_monthly_summaries")
-      .select("days_logged, pain_sum, anxiety_sum, energy_sum, theme_counts")
+      .select("days_logged, pain_sum, anxiety_sum, ptsd_sum, ptsd_days, energy_sum, theme_counts")
       .eq("user_id", userId)
       .eq("month_start", monthStart)
       .maybeSingle();
@@ -129,6 +142,8 @@ Deno.serve(async (req) => {
         days_logged: (existing?.days_logged ?? 0) + g.days,
         pain_sum: (existing?.pain_sum ?? 0) + g.painSum,
         anxiety_sum: (existing?.anxiety_sum ?? 0) + g.anxietySum,
+        ptsd_sum: (existing?.ptsd_sum ?? 0) + g.ptsdSum,
+        ptsd_days: (existing?.ptsd_days ?? 0) + g.ptsdDays,
         energy_sum: (existing?.energy_sum ?? 0) + g.energySum,
         theme_counts: mergedThemeCounts,
         updated_at: new Date().toISOString(),
