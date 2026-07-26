@@ -32,27 +32,33 @@ export function initSentry(): void {
   });
 }
 
-// Reports a startup hang/timeout (see AuthContext's withTimeout) - the class
-// of bug that produces a silent blank screen with no crash for Play vitals
-// to see. PII-free: the error contains only our own timeout label.
-// `outcome` optionally distinguishes what actually happened once a slow
-// auth-bootstrap settled - "slow" (still in flight, no decision made yet),
-// "timeout-fallback" (we gave up waiting and forced a sign-out), or
-// "background-error" (the background refresh threw but an optimistic
-// session was already up, so no sign-out happened). Omit it for plain
-// startup-hang reports elsewhere (e.g. the consent-check timeout). Safe to
-// call when Sentry is disabled (dev) - capture is simply a no-op.
-export function reportStartupHang(
+// Reports a hang/timeout somewhere in the auth flow (see AuthContext's
+// withTimeout) - the class of bug that produces a silent blank screen (or,
+// for sign-out, an unresponsive button) with no crash for Play vitals to
+// see. PII-free: the error contains only our own timeout label. Originally
+// bootstrap-only (hence the name staying close to that history), now also
+// used by signOut() since supabase-js's fetch has the identical
+// no-built-in-timeout vulnerability there.
+// `outcome` optionally distinguishes what actually happened once the call
+// settled - "slow" (still in flight, no decision made yet), "timeout-
+// fallback" (bootstrap gave up waiting and forced a sign-out), "background-
+// error" (bootstrap's background refresh threw but an optimistic session
+// was already up, so no sign-out happened), or "local-fallback" (signOut()
+// hung/failed and fell back to a local-only sign-out). Omit it for plain
+// hang reports elsewhere (e.g. the consent-check timeout). Safe to call
+// when Sentry is disabled (dev) - capture is simply a no-op.
+export function reportAuthHang(
   err: unknown,
-  outcome?: "slow" | "timeout-fallback" | "background-error"
+  area: "auth-bootstrap" | "auth-signout",
+  outcome?: "slow" | "timeout-fallback" | "background-error" | "local-fallback"
 ): void {
   try {
     Sentry.captureException(
-      err instanceof Error ? err : new Error("startup hang: unknown"),
-      { tags: { area: "auth-bootstrap", ...(outcome ? { outcome } : {}) } }
+      err instanceof Error ? err : new Error(`${area} hang: unknown`),
+      { tags: { area, ...(outcome ? { outcome } : {}) } }
     );
   } catch {
-    // Telemetry must never break startup handling.
+    // Telemetry must never break auth handling.
   }
 }
 
@@ -66,8 +72,8 @@ export function wrapRoot<P extends Record<string, unknown>>(
 }
 
 // Reports a failure to dismiss the splash screen - the other class of bug
-// that produces the same symptom as reportStartupHang above (silent blank/
-// navy screen, no native crash for Play vitals to see), but on the splash
+// that produces the same symptom as reportAuthHang's bootstrap case above
+// (silent blank/navy screen, no native crash for Play vitals to see), but on the splash
 // side rather than auth-bootstrap: SplashScreen.hideAsync() itself throwing,
 // on either the primary RootNavigator.onReady path or the App.tsx failsafe
 // timer. callSite says which one, so the Sentry timeline can tell "hideAsync

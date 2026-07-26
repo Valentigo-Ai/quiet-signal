@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import * as WebBrowser from "expo-web-browser";
 import { supabase, getPersistedSession } from "@/lib/supabase";
-import { reportStartupHang } from "@/lib/sentry";
+import { reportAuthHang } from "@/lib/sentry";
 
 // Lets the in-app browser tab close itself and hand control back once the
 // Google OAuth redirect lands - required boilerplate per Expo's AuthSession
@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const softTimer = persisted
         ? setTimeout(() => {
             if (!resolved) {
-              reportStartupHang(new Error("getSession still running after 6000ms"), "slow");
+              reportAuthHang(new Error("getSession still running after 6000ms"), "auth-bootstrap", "slow");
             }
           }, 6000)
         : null;
@@ -145,8 +145,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const hardTimer = persisted
         ? setTimeout(() => {
             if (!resolved) {
-              reportStartupHang(
+              reportAuthHang(
                 new Error("getSession never settled after 45000ms"),
+                "auth-bootstrap",
                 "timeout-fallback"
               );
             }
@@ -180,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // launch (the onAuthStateChange listener re-checks on the next
           // auth event).
           await withTimeout(refreshConsentStatus(), 4000, "consent check").catch((err) => {
-            reportStartupHang(err);
+            reportAuthHang(err, "auth-bootstrap");
             if (mounted) setNeedsConsent(false);
           });
         }
@@ -197,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // session's optimistic UI was already up - inconclusive (not the
         // "genuinely failed" signal gotrue-js normally returns in-band),
         // so it's reported but does NOT sign the user out.
-        reportStartupHang(err, persisted ? "background-error" : "timeout-fallback");
+        reportAuthHang(err, "auth-bootstrap", persisted ? "background-error" : "timeout-fallback");
         if (!persisted) setSession(null);
       } finally {
         // The persisted branch already cleared loading optimistically
@@ -289,8 +290,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      // Same no-built-in-timeout vulnerability as getSession() in the
+      // bootstrap above - signOut() also revokes the session server-side
+      // over a network call that can hang indefinitely (confirmed via
+      // Sentry: a `getSession never settled after 45000ms` event fired at
+      // the same moment a user's "Log out" tap did nothing on 0.1.0 (33)).
+      const { error } = await withTimeout(supabase.auth.signOut(), 6000, "signOut");
+      if (error) throw error;
+    } catch (err) {
+      reportAuthHang(err, "auth-signout", "local-fallback");
+      // Opposite of the bootstrap's inconclusive-hang handling above: an
+      // inconclusive hang there must NOT be treated as a decisive "you're
+      // logged out," because nothing decisive happened. Here something
+      // decisive did happen - the user explicitly tapped "Log out" - so an
+      // unresponsive server round trip must never leave them stuck signed
+      // in. Fall back to a local-only sign-out (clears the on-device
+      // session without waiting on the network) and set the session
+      // directly as a safety net, in case the local-scope call doesn't
+      // reliably fire onAuthStateChange.
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+      setSession(null);
+    }
   };
 
   // Password reset, code-based (not a magic-link deep link). resetPasswordForEmail
