@@ -13,6 +13,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+const FETCH_TIMEOUT_MS = 20000;
+
+// supabase-js's fetch has no built-in timeout (see resolveFetch in
+// @supabase/auth-js) - a stalled request (TCP connects, response never
+// lands, which happens on flaky mobile wifi even while the OS reports
+// "online") hangs every awaiting caller forever. Worse, auth-js
+// single-flights token refreshes through one shared `refreshingDeferred`,
+// so one stuck request wedges every subsequent refresh attempt too, not
+// just the first. Wrapping fetch with an abortable timeout bounds every
+// request the client makes so a stuck one fails fast and lets gotrue-js's
+// own retry/error handling take over, instead of hanging the client
+// permanently (see 2026-07-26 mid-session forced-logout incident).
+function timeoutFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
@@ -26,6 +44,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     // what makes supabase-js pick those up automatically on load, which is
     // what the web branch of signInWithGoogle relies on.
     detectSessionInUrl: Platform.OS === "web",
+  },
+  global: {
+    fetch: timeoutFetch,
   },
 });
 

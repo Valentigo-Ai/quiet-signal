@@ -99,10 +99,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // in flight, and set before either branch below touches state so a
     // late resolution can tell it's no longer the freshest source of truth.
     let resolved = false;
-    // Set only by the hard timeout giving up - guards against that same
-    // late resolution then clobbering whatever happened after (e.g. the
-    // user manually signing back in) with its now-stale result.
-    let abandoned = false;
 
     (async () => {
       // Read whatever session was last persisted, without touching the
@@ -136,21 +132,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }, 6000)
         : null;
 
-      // Last-resort recovery for a device that never gets a network
-      // response at all. Without this, a permanently offline phone would
-      // stay "optimistically signed in" on a possibly long-expired session
-      // forever, with no path back to a working account. Deliberately far
-      // above the 6s soft timer above so it only fires when the real call
-      // is truly stuck, not just slow.
+      // Telemetry only, same as the 6s soft timer - fires when the real
+      // call is still stuck 45s in. Used to unconditionally give up and
+      // force setSession(null) here, treating "never settles" as "device
+      // is permanently offline." That's wrong: supabase-js's fetch has no
+      // built-in timeout (see timeoutFetch in supabase.ts), so a stalled
+      // request can hang this long on a device the OS reports as online -
+      // it forced a real mid-session logout on 2026-07-26 while the user
+      // was actively using the app. gotrue-js only signs the user out for
+      // a conclusive decision it actually made (see the try/catch below);
+      // this timer must stay just as inconclusive as that.
       const hardTimer = persisted
         ? setTimeout(() => {
             if (!resolved) {
-              abandoned = true;
               reportStartupHang(
                 new Error("getSession never settled after 45000ms"),
                 "timeout-fallback"
               );
-              if (mounted) setSession(null);
             }
           }, 45000)
         : null;
@@ -169,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         resolved = true;
         if (softTimer) clearTimeout(softTimer);
         if (hardTimer) clearTimeout(hardTimer);
-        if (!mounted || abandoned) return;
+        if (!mounted) return;
 
         // gotrue-js only ever resolves session:null here for an outcome it
         // has actually decided - nothing was persisted, or a refresh that
@@ -190,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         resolved = true;
         if (softTimer) clearTimeout(softTimer);
         if (hardTimer) clearTimeout(hardTimer);
-        if (!mounted || abandoned) return;
+        if (!mounted) return;
 
         // Reachable here for two different reasons: (a) no persisted
         // session and our own 6s timeout fired - nothing was showing
