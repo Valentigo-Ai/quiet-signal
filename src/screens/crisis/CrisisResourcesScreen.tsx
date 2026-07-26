@@ -88,8 +88,8 @@ export function CrisisResourcesScreen() {
             </Text>
             <Text style={[styles.ackBody, { color: theme.textMuted }]}>
               We brought you here gently because something in a recent entry made us want to make sure
-              these are close by. There's nothing you have to do, and you're not in any trouble - this is
-              just here if it helps. If things feel urgent, the services below are free and open right now.
+              these are close by. This is simply here if it helps - whether you use it is entirely your
+              call. If things feel urgent, the services below are free and open right now.
             </Text>
             <Pressable
               onPress={handleAcknowledge}
