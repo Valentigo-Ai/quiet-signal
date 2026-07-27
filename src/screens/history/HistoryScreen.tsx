@@ -64,7 +64,7 @@ type WeekBucket = {
   anxiety: number;
   // null if no check-in in this week has a ptsd_score (person doesn't
   // track PTSD, or none of that week's entries had it set) - distinct from
-  // 0 ("Grounded"), which is a real logged value.
+  // 0 ("Steady"), which is a real logged value.
   ptsd: number | null;
   energy: number;
 };
@@ -106,7 +106,7 @@ function buildWeeklyBuckets(checkins: Checkin[]): WeekBucket[] {
 
     // Averaged only over the entries that actually have a ptsd_score - a
     // week where only some days logged it shouldn't have the rest silently
-    // counted as 0 ("Grounded"), which would understate the average.
+    // counted as 0 ("Steady"), which would understate the average.
     const ptsdScores = group.map((c) => c.ptsd_score).filter((s): s is number => s !== null);
     const ptsd = ptsdScores.length > 0 ? clampScore(ptsdScores.reduce((sum, s) => sum + s, 0) / ptsdScores.length) : null;
 

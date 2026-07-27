@@ -93,6 +93,9 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
           .chart-title { color: #545D8A; font-size: 12px; margin-bottom: 6px; }
           .legend { display: flex; gap: 18px; font-size: 12px; color: #1C2240; margin-top: 4px; }
           .legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+          /* A dimension that has data but not enough of it to plot - muted so
+             it reads as "not yet" rather than as a line you've failed to find. */
+          .legend .pending { color: #545D8A; }
           .legend-dates { display: flex; justify-content: space-between; font-size: 11px; color: #545D8A; margin-top: 4px; }
         </style>
       </head>
@@ -171,7 +174,19 @@ function buildChartSvg(rows: ReportRow[]) {
       <div class="legend">
         <span><span class="dot" style="background:#B3413A"></span>Pain (solid)</span>
         <span><span class="dot" style="background:#3E4C8F"></span>Anxiety (dashed)</span>
-        ${showPtsdLine ? `<span><span class="dot" style="background:#7A4FBF"></span>PTSD (dash-dot)</span>` : ""}
+        ${
+          showPtsdLine
+            ? `<span><span class="dot" style="background:#7A4FBF"></span>PTSD (dash-dot)</span>`
+            : ptsdPointCount === 1
+              ? // One score is enough for the table column but not for a line, which
+                // left the key with no mention of PTSD at all while the table plainly
+                // showed a PTSD value - the dimension read as though it didn't exist.
+                // Naming it here, muted, with its colour and the reason, keeps the key
+                // accounting for every column in the table without advertising a line
+                // that isn't drawn.
+                `<span class="pending"><span class="dot" style="background:#7A4FBF;opacity:0.45"></span>PTSD (dash-dot) &ndash; needs 2+ entries</span>`
+              : ""
+        }
         <span><span class="dot" style="background:#2F6B55"></span>Energy (dotted)</span>
       </div>
       <div class="legend-dates"><span>${escapeHtml(rows[0].date)}</span><span>${escapeHtml(rows[rows.length - 1].date)}</span></div>

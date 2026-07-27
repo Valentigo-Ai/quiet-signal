@@ -4,6 +4,16 @@
 // and PDF export - so a shared/exported score always says the exact same
 // thing the person actually tapped, and a future wording change (like
 // Moderate -> Medium) can't drift out of sync between screens.
+//
+// Wording is also constrained by layout, which isn't obvious from reading the
+// strings alone. Five pills share the screen width on the check-in scale, and
+// a single unbroken word longer than roughly 7 characters won't fit one at the
+// base font size - ScaleInput then shrinks the WHOLE row so the five options
+// stay visually equal, which makes that row noticeably smaller than the
+// others. Multi-word labels are free: they wrap at their spaces, so "A little
+// on edge" (16 characters) costs nothing while "Overwhelmed" (11, unbroken)
+// forced the entire Anxiety row down a size. Prefer short single words or
+// short phrases; avoid long single words. See ScaleInput.tsx.
 export const PAIN_LABELS: [string, string, string, string, string] = [
   "None",
   "Mild",
@@ -16,7 +26,10 @@ export const ANXIETY_LABELS: [string, string, string, string, string] = [
   "A little on edge",
   "Anxious",
   "Very anxious",
-  "Overwhelmed",
+  // Was "Overwhelmed" until July 2026. Same meaning, but 11 unbroken
+  // characters shrank the whole Anxiety row; "At my limit" wraps at its
+  // spaces and reads as something a person would say about themselves.
+  "At my limit",
 ];
 // Split out from the combined "Anxiety/PTSD" scale (July 2026) into its own
 // optional dimension - see WhatAreYouDealingWithScreen.tsx and
@@ -27,15 +40,22 @@ export const ANXIETY_LABELS: [string, string, string, string, string] = [
 // "Keyed up" and "Flooded" tested as confusing/unclear (Richard's July 2026
 // feedback) and were replaced with plainer words, accepting the small
 // cross-dimension overlap in exchange for clarity.
+//
+// "Grounded" -> "Steady" and "Overloaded" -> "Too much" (July 2026) for the
+// layout reason at the top of this file. "Triggered" is deliberately kept
+// despite being 9 unbroken characters: it's the term people with PTSD
+// actually use, and the alternatives that would fit ("Set off") lose that
+// recognition. The row therefore settles slightly below the base font size,
+// but uniformly across all five options rather than one shrunken outlier.
 export const PTSD_LABELS: [string, string, string, string, string] = [
-  "Grounded",
+  "Steady",
   "A little on alert",
   "On edge",
   "Triggered",
-  "Overloaded",
+  "Too much",
 ];
 // 0 = Great, 4 = Very low - matches PAIN_LABELS/ANXIETY_LABELS where 4 is
-// always "the concerning end" (Severe, Overwhelmed). Energy used to run the
+// always "the concerning end" (Severe, At my limit). Energy used to run the
 // other way (4 = Great) since it measures a good thing rather than a bad
 // one, but that meant a rising number was good news for Energy and bad news
 // for everything else - confusing for trend wording and charts. Flipped
