@@ -167,9 +167,25 @@ export function HistoryScreen() {
     setLoading(true);
     const since = new Date();
     since.setDate(since.getDate() - range);
+    // Explicitly owner-scoped as well as RLS-scoped. This screen used to rely
+    // on the policy alone, and the July 2026 review found checkins_select_own
+    // had been deployed with an operator-precedence bug that left one of its
+    // disjuncts with no ownership test - so this query would have rendered
+    // another account's check-ins inline as if they were yours, and fed them
+    // into the PDF export too. Defence in depth: the filter costs nothing and
+    // the policy is no longer the only thing standing between the two.
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) {
+      reportDataError(new Error("no session"), "history-load");
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from("checkins")
       .select("id, date, pain_score, anxiety_score, ptsd_score, energy_score, note")
+      .eq("user_id", userId)
       .gte("date", since.toISOString().slice(0, 10))
       .order("date", { ascending: true });
     if (error) {

@@ -27,10 +27,19 @@ type Props = {
 // Multi-word labels ("A little on alert") are left alone - they wrap at their
 // spaces, which reads fine. Only rendering changes; the label text itself is
 // untouched, since it's reused in the share summary, PDF export and history.
+//
+// Sizes revised 2026-07-27 after on-device QA of v38: the first pass was
+// estimated from a screenshot rather than measured, and every threshold was
+// one step too generous. "Grounded" (8) at 11px, "Overloaded" (10) and
+// "Overwhelmed" (11) at 10px all still broke mid-word; only "Triggered" (9)
+// fitted. Each bucket therefore drops a step, and the pill's horizontal
+// padding is halved to give the longest words a little more room to land in
+// (five pills share the screen width, so padding is worth ~2 characters).
 function pillFontSize(text: string): number {
   if (text.includes(" ")) return 12;
-  if (text.length >= 10) return 10; // Overwhelmed, Overloaded
-  if (text.length >= 8) return 11; // Grounded, Triggered
+  if (text.length >= 11) return 9; // Overwhelmed
+  if (text.length >= 10) return 9.5; // Overloaded
+  if (text.length >= 8) return 10; // Grounded, Triggered
   return 12;
 }
 
@@ -89,7 +98,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: 2, // see pillFontSize - buys ~2 characters of width
     paddingVertical: spacing.sm,
   },
   pillText: { fontSize: 12, textAlign: "center", fontFamily: fonts.body },

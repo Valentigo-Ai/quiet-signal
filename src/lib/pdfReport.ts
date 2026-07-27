@@ -36,12 +36,12 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
     .map(
       (r) => `
         <tr>
-          <td>${r.date}</td>
-          <td>${r.pain_score} / 4</td>
-          <td>${r.anxiety_score} / 4</td>
-          ${hasPtsd ? `<td>${r.ptsd_score !== null ? `${r.ptsd_score} / 4` : "–"}</td>` : ""}
-          <td>${r.energy_score} / 4</td>
-          <td>${r.note ? escapeHtml(r.note) : ""}</td>
+          <td class="date">${r.date}</td>
+          <td class="score">${r.pain_score} / 4</td>
+          <td class="score">${r.anxiety_score} / 4</td>
+          ${hasPtsd ? `<td class="score">${r.ptsd_score !== null ? `${r.ptsd_score} / 4` : "–"}</td>` : ""}
+          <td class="score">${r.energy_score} / 4</td>
+          <td class="note">${r.note ? escapeHtml(r.note) : ""}</td>
         </tr>`
     )
     .join("");
@@ -58,15 +58,38 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
       <head>
         <meta charset="utf-8" />
         <style>
-          body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #1C2240; padding: 32px; }
+          /* An explicit page box plus a border-box body: without these the
+             32px body padding sat on top of the print engine's own default
+             margin, and everything below was laid out against a page wider
+             than the one actually printed - which is what pushed the chart's
+             right-hand date label and the Note column off the edge. */
+          @page { size: A4; margin: 14mm; }
+          * { box-sizing: border-box; }
+          /* Small padding rather than none: Android's WebView print adapter
+             applies its own page margin and may ignore @page entirely, so this
+             degrades to "printer margin + 8px" instead of text flush to the
+             trimmed edge. The old 32px was what stacked on top of that margin. */
+          body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #1C2240; padding: 8px; margin: 0; }
           h1 { font-size: 22px; margin-bottom: 4px; }
           .muted { color: #545D8A; font-size: 13px; margin-bottom: 24px; }
           .summary { background: #EDF0FA; border-radius: 12px; padding: 16px; font-size: 15px; line-height: 1.5; margin-bottom: 24px; }
-          table { width: 100%; border-collapse: collapse; font-size: 13px; }
-          th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #CDD4EE; }
+          /* table-layout: fixed so the Note column can't widen the table past
+             the page to fit a long entry on one line (auto layout did exactly
+             that, clipping the note instead of wrapping it). */
+          table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
+          th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #CDD4EE; vertical-align: top; }
           th { color: #545D8A; font-weight: 600; }
+          /* Scores are short and must never break: "4 / 4" was wrapping to two
+             lines in the Pain column while Anxiety fitted on one. */
+          .score { white-space: nowrap; }
+          .date { white-space: nowrap; }
+          .note { word-wrap: break-word; overflow-wrap: anywhere; }
           .disclaimer { margin-top: 28px; font-size: 11px; color: #545D8A; line-height: 1.5; }
           .chart { margin: 0 0 24px; }
+          /* Scale the fixed-geometry SVG down to whatever the page actually
+             is, rather than emitting it at its natural 640px and letting it
+             hang off the right edge. */
+          .chart svg { width: 100%; height: auto; display: block; }
           .chart-title { color: #545D8A; font-size: 12px; margin-bottom: 6px; }
           .legend { display: flex; gap: 18px; font-size: 12px; color: #1C2240; margin-top: 4px; }
           .legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
@@ -79,6 +102,14 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
         <div class="summary">${escapeHtml(summaryText)}</div>
         ${chartSvg}
         <table>
+          <colgroup>
+            <col style="width:${hasPtsd ? "15%" : "16%"}" />
+            <col style="width:${hasPtsd ? "10%" : "11%"}" />
+            <col style="width:${hasPtsd ? "12%" : "13%"}" />
+            ${hasPtsd ? `<col style="width:10%" />` : ""}
+            <col style="width:${hasPtsd ? "12%" : "13%"}" />
+            <col style="width:${hasPtsd ? "41%" : "47%"}" />
+          </colgroup>
           <thead>
             <tr><th>${periodLabel}</th><th>Pain</th><th>Anxiety</th>${hasPtsd ? "<th>PTSD</th>" : ""}<th>Energy</th><th>Note</th></tr>
           </thead>
@@ -106,7 +137,14 @@ function buildChartSvg(rows: ReportRow[]) {
   const h = 160;
   const pad = 8;
   const n = rows.length;
-  const hasPtsd = rows.some((r) => r.ptsd_score !== null);
+  // The table column appears with a single PTSD value (one score is still
+  // worth showing), but a line needs two points to exist: <polyline> with one
+  // coordinate draws nothing. Gating the legend on the same `some(...)` test
+  // as the table therefore printed "PTSD (dash-dot)" in the key next to an
+  // empty chart - which reads as a rendering failure rather than as "not
+  // enough data yet." Both the line and its legend entry now require >= 2.
+  const ptsdPointCount = rows.filter((r) => r.ptsd_score !== null).length;
+  const showPtsdLine = ptsdPointCount >= 2;
   const toPoints = (key: "pain_score" | "anxiety_score" | "energy_score" | "ptsd_score") =>
     rows
       .map((r, i) => ({ score: r[key], i }))
@@ -127,13 +165,13 @@ function buildChartSvg(rows: ReportRow[]) {
         <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="#CDD4EE" stroke-width="1" />
         <polyline points="${toPoints("pain_score")}" fill="none" stroke="#B3413A" stroke-width="2" />
         <polyline points="${toPoints("anxiety_score")}" fill="none" stroke="#3E4C8F" stroke-width="2" stroke-dasharray="6,4" />
-        ${hasPtsd ? `<polyline points="${toPoints("ptsd_score")}" fill="none" stroke="#7A4FBF" stroke-width="2" stroke-dasharray="8,3,2,3" />` : ""}
+        ${showPtsdLine ? `<polyline points="${toPoints("ptsd_score")}" fill="none" stroke="#7A4FBF" stroke-width="2" stroke-dasharray="8,3,2,3" />` : ""}
         <polyline points="${toPoints("energy_score")}" fill="none" stroke="#2F6B55" stroke-width="2" stroke-dasharray="1,4" stroke-linecap="round" />
       </svg>
       <div class="legend">
         <span><span class="dot" style="background:#B3413A"></span>Pain (solid)</span>
         <span><span class="dot" style="background:#3E4C8F"></span>Anxiety (dashed)</span>
-        ${hasPtsd ? `<span><span class="dot" style="background:#7A4FBF"></span>PTSD (dash-dot)</span>` : ""}
+        ${showPtsdLine ? `<span><span class="dot" style="background:#7A4FBF"></span>PTSD (dash-dot)</span>` : ""}
         <span><span class="dot" style="background:#2F6B55"></span>Energy (dotted)</span>
       </div>
       <div class="legend-dates"><span>${escapeHtml(rows[0].date)}</span><span>${escapeHtml(rows[rows.length - 1].date)}</span></div>
