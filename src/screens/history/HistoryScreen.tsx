@@ -148,6 +148,13 @@ export function HistoryScreen() {
   // mismatch once made every History load 400, and someone with months of
   // real history saw an empty screen with nothing telling them it was wrong).
   const [loadError, setLoadError] = useState(false);
+  // Distinct from both loadError and checkins.length === 0: while a slow
+  // query is still in flight, checkins sits at its initial empty array,
+  // which renders identically to "confirmed no check-ins yet" - on a device
+  // where Supabase calls hang (see AuthContext's getSession/signOut
+  // timeouts), that showed the sparse empty layout, missing the summary
+  // card and download button, until the query finally resolved.
+  const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   // The day-by-day list is collapsed by default (Richard's request, July
   // 2026): seeing every logged day laid out on screen at once can itself
@@ -157,6 +164,7 @@ export function HistoryScreen() {
   const [showList, setShowList] = useState(false);
 
   const loadCheckins = async () => {
+    setLoading(true);
     const since = new Date();
     since.setDate(since.getDate() - range);
     const { data, error } = await supabase
@@ -167,10 +175,12 @@ export function HistoryScreen() {
     if (error) {
       reportDataError(error, "history-load");
       setLoadError(true);
+      setLoading(false);
       return;
     }
     setLoadError(false);
     setCheckins(data ?? []);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -342,7 +352,11 @@ export function HistoryScreen() {
           })}
         </ScrollView>
 
-        {loadError ? (
+        {loading ? (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <ActivityIndicator color={theme.primary} />
+          </View>
+        ) : loadError ? (
           <TextOnPhoto style={{ margin: spacing.lg, alignSelf: "flex-start" }}>
             <Text style={{ color: theme.textMuted, marginBottom: spacing.sm }}>
               We couldn't load your history just now.

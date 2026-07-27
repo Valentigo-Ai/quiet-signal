@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Switch } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Switch, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
@@ -24,17 +24,55 @@ export function SettingsScreen() {
   const navigation = useNavigation<any>();
   const tabBarHeight = useBottomTabBarHeight(); // tab bar now floats over content (see RootNavigator)
   const [pickerVisible, setPickerVisible] = useState(false);
+  // signOut() can hang for several seconds on a slow/hung device (see
+  // AuthContext's withTimeout) - without this, "Log out" gave no feedback
+  // while waiting, so a person would tap it again (and again), stacking up
+  // multiple concurrent signOut() calls each racing their own timeout. This
+  // just disables the row and shows a spinner for the duration of one call.
+  const [signingOut, setSigningOut] = useState(false);
 
-  const Row = ({ label, subtitle, onPress }: { label: string; subtitle?: string; onPress: () => void }) => (
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    await signOut();
+    // Not reset in a finally: a successful sign-out unmounts this screen via
+    // the root navigator switching to the auth stack, and resetting state on
+    // an unmounted component is a no-op RN already warns about avoiding.
+    // signOut() never throws (see its own try/catch), so this only matters
+    // on the success path anyway.
+    setSigningOut(false);
+  };
+
+  const Row = ({
+    label,
+    subtitle,
+    onPress,
+    loading,
+  }: {
+    label: string;
+    subtitle?: string;
+    onPress: () => void;
+    loading?: boolean;
+  }) => (
     <Pressable
       onPress={onPress}
+      disabled={loading}
       style={[
         styles.row,
-        { borderColor: theme.border, backgroundColor: theme.surface + "D9", minHeight: theme.minTouchTarget },
+        {
+          borderColor: theme.border,
+          backgroundColor: theme.surface + "D9",
+          minHeight: theme.minTouchTarget,
+          opacity: loading ? 0.6 : 1,
+        },
       ]}
       accessibilityRole="button"
+      accessibilityState={{ disabled: loading }}
     >
-      <Text style={{ color: theme.text, fontSize: fontSizes.body }}>{label}</Text>
+      <View style={styles.rowContent}>
+        <Text style={{ color: theme.text, fontSize: fontSizes.body }}>{label}</Text>
+        {loading ? <ActivityIndicator size="small" color={theme.textMuted} /> : null}
+      </View>
       {subtitle ? (
         <Text style={{ color: theme.textMuted, fontSize: fontSizes.label, marginTop: 2 }}>{subtitle}</Text>
       ) : null}
@@ -120,7 +158,7 @@ export function SettingsScreen() {
           </Text>
         </TextOnPhoto>
 
-        <Row label="Log out" onPress={() => signOut()} />
+        <Row label={signingOut ? "Logging out..." : "Log out"} onPress={handleSignOut} loading={signingOut} />
       </ScrollView>
 
       <RegionPicker
@@ -147,6 +185,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.xs,
   },
+  rowContent: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   switchRow: {
     flexDirection: "row",
     justifyContent: "space-between",

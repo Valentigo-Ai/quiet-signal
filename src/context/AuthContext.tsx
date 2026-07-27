@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import * as WebBrowser from "expo-web-browser";
 import { supabase, getPersistedSession } from "@/lib/supabase";
-import { reportAuthHang } from "@/lib/sentry";
+import { reportAuthHang, logPersistedSessionReadDuration } from "@/lib/sentry";
 
 // Lets the in-app browser tab close itself and hand control back once the
 // Google OAuth redirect lands - required boilerplate per Expo's AuthSession
@@ -104,7 +104,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Read whatever session was last persisted, without touching the
       // network (see getPersistedSession) - this is what makes the
       // difference between "slow" and "signed out" below.
+      const persistedReadStart = Date.now();
       const persisted = await getPersistedSession();
+      logPersistedSessionReadDuration(Date.now() - persistedReadStart);
 
       if (persisted && mounted) {
         // Optimistic path (2026-07-25 fix): a persisted session - even one

@@ -155,3 +155,27 @@ export function logSplashOnReady(): void {
     // Telemetry must never break startup handling.
   }
 }
+
+// Duration-only breadcrumb around AuthContext's getPersistedSession() read -
+// the one AsyncStorage call that runs before anything network-bound on cold
+// start. It has no timeout of its own and isn't wrapped in withTimeout, so a
+// hang here would currently be invisible: reportAuthHang only fires once the
+// *network* getSession() call is confirmed still in flight, which can't tell
+// apart "the storage read itself stalled" from "storage was fast but the
+// network call is what's hanging" - two different bugs (JS-thread/storage
+// contention on a low-RAM device vs. a genuinely stuck fetch) that would
+// otherwise look identical in reportAuthHang's existing events. This adds
+// only a number to the breadcrumb trail attached to whatever fires next
+// (e.g. reportAuthHang) - never the session contents. Safe to call when
+// Sentry is disabled (dev) - a no-op like the others in this file.
+export function logPersistedSessionReadDuration(ms: number): void {
+  try {
+    Sentry.addBreadcrumb({
+      category: "auth-bootstrap",
+      message: `getPersistedSession took ${ms}ms`,
+      level: ms > 1000 ? "warning" : "info",
+    });
+  } catch {
+    // Telemetry must never break auth handling.
+  }
+}
