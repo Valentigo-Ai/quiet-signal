@@ -20,18 +20,19 @@ export const ANXIETY_LABELS: [string, string, string, string, string] = [
 ];
 // Split out from the combined "Anxiety/PTSD" scale (July 2026) into its own
 // optional dimension - see WhatAreYouDealingWithScreen.tsx and
-// profiles.presenting_concerns. Deliberately not a copy of ANXIETY_LABELS:
-// PTSD's check-in question is about hyperarousal/trauma-response intensity
-// (being on guard, keyed up, triggered by a reminder, flooded), not general
-// worry - reusing "Anxious"/"Overwhelmed" wording would blur two different
-// experiences into the same words. Kept plain-language and non-clinical,
-// matching the tone of every other scale here.
+// profiles.presenting_concerns. PTSD's check-in question is about
+// hyperarousal/trauma-response intensity, not general worry, so this isn't
+// just a copy of ANXIETY_LABELS. "On edge" (level 2) deliberately echoes
+// Anxiety's "A little on edge" (level 1) more than the original wording did -
+// "Keyed up" and "Flooded" tested as confusing/unclear (Richard's July 2026
+// feedback) and were replaced with plainer words, accepting the small
+// cross-dimension overlap in exchange for clarity.
 export const PTSD_LABELS: [string, string, string, string, string] = [
   "Grounded",
   "A little on alert",
-  "Keyed up",
+  "On edge",
   "Triggered",
-  "Flooded",
+  "Overloaded",
 ];
 // 0 = Great, 4 = Very low - matches PAIN_LABELS/ANXIETY_LABELS where 4 is
 // always "the concerning end" (Severe, Overwhelmed). Energy used to run the

@@ -25,6 +25,9 @@ type Props = {
 // unsplit word; only what's rendered on the button itself changes.
 const DISPLAY_LINE_BREAKS: Record<string, string> = {
   Overwhelmed: "Over\nwhelmed",
+  Grounded: "Ground\ned",
+  Triggered: "Trigger\ned",
+  Overloaded: "Over\nloaded",
 };
 
 export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
