@@ -16,19 +16,23 @@ type Props = {
   scaleLabels: [string, string, string, string, string];
 };
 
-// Some single-word labels ("Overwhelmed") are too long to fit this pill's
-// width on one line, and with no space in the word to wrap at, they broke
-// mid-syllable ("Overwhe" / "lmed" - confirmed on-device, adjustsFontSizeToFit
-// below wasn't reliably shrinking it far enough). This forces a clean
-// two-line split for DISPLAY ONLY - the actual label text (reused in the
-// share summary, PDF export, and weekly history rows) stays the plain,
-// unsplit word; only what's rendered on the button itself changes.
-const DISPLAY_LINE_BREAKS: Record<string, string> = {
-  Overwhelmed: "Over\nwhelmed",
-  Grounded: "Ground\ned",
-  Triggered: "Trigger\ned",
-  Overloaded: "Over\nloaded",
-};
+// Long single-word labels ("Overwhelmed", "Triggered") don't fit this pill's
+// width at the base font size, and with no space to wrap at, Android breaks
+// them mid-word. The previous fix used adjustsFontSizeToFit/minimumFontScale,
+// which are iOS-only and silently no-ops on Android - that's why the shrink
+// never took, and why it ended up worked around with a hardcoded "\n" split
+// ("Ground\ned") that left an orphaned "ed" on its own line.
+//
+// Instead, shrink the font for long unbroken words so they stay on one line.
+// Multi-word labels ("A little on alert") are left alone - they wrap at their
+// spaces, which reads fine. Only rendering changes; the label text itself is
+// untouched, since it's reused in the share summary, PDF export and history.
+function pillFontSize(text: string): number {
+  if (text.includes(" ")) return 12;
+  if (text.length >= 10) return 10; // Overwhelmed, Overloaded
+  if (text.length >= 8) return 11; // Grounded, Triggered
+  return 12;
+}
 
 export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
   const { theme } = useAppTheme();
@@ -59,13 +63,14 @@ export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
               <Text
                 style={[
                   styles.pillText,
-                  { color: selected ? theme.onPrimary : theme.text },
+                  {
+                    color: selected ? theme.onPrimary : theme.text,
+                    fontSize: pillFontSize(text),
+                  },
                 ]}
                 numberOfLines={2}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
               >
-                {DISPLAY_LINE_BREAKS[text] ?? text}
+                {text}
               </Text>
             </Pressable>
           );
