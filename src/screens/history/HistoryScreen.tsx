@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, Alert, ActivityIndicator, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
 import { usePro, FREE_HISTORY_RANGES, PRO_ONLY_HISTORY_RANGES } from "@/context/ProContext";
@@ -183,10 +183,19 @@ export function HistoryScreen() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadCheckins();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range]);
+  // Reload on focus, not just on mount. The tab navigator keeps this screen
+  // mounted, so a mount-only load meant today's check-in was missing from
+  // History - and from the PDF export, which reads this same state - for the
+  // rest of the session after logging it (2026-07-27: a check-in with a PTSD
+  // score saved fine, but the PDF downloaded seconds later showed no PTSD
+  // column at all, because the stale rows it exported all had ptsd_score
+  // null). Same reason CheckInScreen re-reads its profile on focus.
+  useFocusEffect(
+    useCallback(() => {
+      loadCheckins();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [range])
+  );
 
   // Plain-language trend sentence - PDF report only, never shown on screen
   // (see the product note above the component). Written the way a person
