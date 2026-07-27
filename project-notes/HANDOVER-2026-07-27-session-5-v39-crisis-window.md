@@ -46,11 +46,19 @@ Contains `dadc6de0` on top of session 4's `df5fab73` and `6de919aa`.
 * **PDF: content running off the page.** The chart SVG was emitted at its natural 640px and the table used auto layout, so a long note widened the table past the printable area and got clipped mid-sentence ("...how much more I can" just stopped), and the right-hand date label was cut to `2026-07-`. Now: `@page { size: A4; margin: 14mm }`, `box-sizing: border-box`, body padding down from 32px to 8px (Android's WebView print adapter applies its own margin and may ignore `@page`, so this degrades safely), `.chart svg { width: 100% }`, and `table-layout: fixed` with an explicit `<colgroup>`. Notes now wrap across lines instead of being lost.
 * **PDF: scores breaking across lines.** Pain rendered as `4 /` / `4` on two lines while Anxiety fitted on one. `.score { white-space: nowrap }`.
 
-## Committed but NOT yet built
+## Release: v40
+
+Version code 40, versionName 0.1.0. Released to internal testing 27 Jul 14:06. Contains `57ea75bb` (below) on top of v39. Release notes again added *after* publishing — see the process note under Pre-build checklist step 7; this now looks like the more reliable order rather than a slip.
+
+The only change in it is the scale-label measurement fix. **Not yet confirmed on device** — the check is "Overwhelmed" sitting on one line in the Anxiety scale.
+
+A "1 Warning" appeared on the review step before publishing and was not read. It does not surface on the published release page. Most likely the routine missing-deobfuscation-file notice, but that is an assumption; expand it on the next release's review step to confirm.
+
+## The change in v40
 
 * **`57ea75bb` — scale labels measure themselves instead of guessing a font size.** "Overwhelmed" *still* broke mid-word in v39, after v38 and v39 each shipped a threshold estimated from a screenshot. Character count is a poor proxy for rendered width — "Overwhelmed" carries both a `w` and an `m` and is far wider than "Overloaded" despite being one character longer. New `PillLabel` component renders single-word labels with `numberOfLines={1}`, reads the laid-out line back via `onTextLayout`, and steps the font down 0.5pt at a time until the word is no longer truncated, floor 7px. `pillFontSize` survives as the *starting* estimate so the first paint is close and nothing visibly settles. Multi-word labels ("A little on alert") are untouched — they wrap at spaces, which reads fine. This also adapts to a large system font scale, which no fixed size could.
 
-  As of v39 on device, `Grounded`, `Triggered` and `Overloaded` all fit on one line; only `Overwhelmed` did not. **Needs a v40 build to verify.** Richard's alternative suggestion, if the auto-shrink doesn't satisfy: hardcode `Over\nwhelmed`. Note that's what the code did until v38 — the same map also produced `Ground\ned` and `Trigger\ned` with the orphaned "ed" that prompted the original complaint, but for "Overwhelmed" alone it did look acceptable.
+  As of v39 on device, `Grounded`, `Triggered` and `Overloaded` all fit on one line; only `Overwhelmed` did not. Shipped in v40, **not yet verified on device**. Richard's alternative suggestion, if the auto-shrink doesn't satisfy: hardcode `Over\nwhelmed`. Note that's what the code did until v38 — the same map also produced `Ground\ned` and `Trigger\ned` with the orphaned "ed" that prompted the original complaint, but for "Overwhelmed" alone it did look acceptable.
 
 ## Play Console state
 
@@ -70,9 +78,12 @@ v35  982ee4618915d770b369f7c0d32f48f8
 v37  b7deadaa4399c7d95bc671041754344b
 v38  8da047f445451aaecced98454f33ce81
 v39  d81d92df20682cd4a26d292fc09bae97
+v40  112a42be8ab315093e13aba6fdb7d99c
 ```
 
 v39 additionally verified by string: `table-layout` appears twice (new PDF CSS), and `note_scanned_at` / `processed_at` appear in the app bundle for the first time — they only entered client code with the crisis-window change. `Ground\ned` remains absent.
+
+**The string check was inconclusive for v40, and this is a trap worth remembering.** `onTextLayout` and `ellipsizeMode` look like they'd prove `PillLabel` shipped, but both are already present in v39's bundle — they come from React Native's own `Text` internals, not our code. Our own identifiers (`PillLabel`, `MIN_PILL_FONT_SIZE`) are minified away and aren't greppable either. So for a change that adds no new *string literal*, the hash comparison is the only evidence available; don't mistake a matching framework symbol for confirmation.
 
 ## Pre-build checklist (revised again)
 
@@ -86,11 +97,12 @@ v39 additionally verified by string: `table-layout` appears twice (new PDF CSS),
    ```
    `/tmp` is a RAM-backed tmpfs capped at ~4.9G and EAS wants 10G+; without this the build dies with `No space left on device` after ~18 minutes despite hundreds of gigs free. Record the commit hash EAS prints at the start — `git log -1` afterwards isn't reliable, since Claude Code may commit mid-build. A failed build still consumes a version code.
 6. **Verify the bundle by hash, not by grep.** `index.android.bundle` is Hermes bytecode (magic `c61fbc03`), so grepping for code always fails whether or not the change is present; only the string table is greppable. Extract from the `.aab` (`base/assets/index.android.bundle`), `md5sum` it, compare against the previous build's hash above. Where a change adds or removes a string literal, grep is a useful extra check.
-7. Upload to **internal testing** — an `.aab` can't be sideloaded, so this is the only route onto the device. **Fill in the release notes on the Prepare release page before rolling out.** Don't navigate away or reload the tab while the upload is in flight; the page warns that leaving cancels it.
+7. Upload to **internal testing** — an `.aab` can't be sideloaded, so this is the only route onto the device. Don't navigate away or reload the tab while the upload is in flight; the page warns that leaving cancels it.
+8. **Add release notes after publishing, not before.** Typing them into the Prepare release page does not survive the page re-render that happens when the bundle upload finishes — it was lost that way on both v39 and v40. The reliable route is: publish, then Internal testing → the release → **Manage release** → **Edit release details**, paste inside the `<en-GB>` tags, Save. Limit is 500 characters per language.
 
 ## What's left to do
 
-1. **Build v40 and verify the label auto-shrink** (`57ea75bb`). "Overwhelmed" on one line in the Anxiety scale is the check.
+1. **Verify the label auto-shrink on device.** Shipped in v40; "Overwhelmed" on one line in the Anxiety scale is the check. If it still breaks, the fallback is Richard's `Over\nwhelmed` split (see above) — but note the auto-shrink is a different *kind* of fix from v38's and v39's failed attempts: it reads the laid-out line back from the device rather than predicting width from character count, so a failure here would mean the `onTextLayout` signal isn't firing as expected, not that another threshold needs picking.
 2. **Confirm `reportDataError` actually reaches Sentry.** Still the one unverified link in the chain, carried from session 3. It has zero events, while `reportAuthHang` has three live issues through the identical `Sentry.captureException` path — so the wiring looks structurally sound but is still unproven.
 3. **`getSession` / `signOut` slow path.** Sentry `REACT-NATIVE-1` (`signOut timed out after 6000ms`, 31 events / 5 users), `REACT-NATIVE-2` (`getSession never settled after 45000ms`), and a **new** `REACT-NATIVE-3` (`getSession still running after 6000ms`, first seen 26 Jul). Suggested next step unchanged: a duration-only breadcrumb around the AsyncStorage persisted-session read.
 4. **Decide whether to submit the 11 pending Play Console changes.** Not blocking internal testing. Remember managed publishing is off.
