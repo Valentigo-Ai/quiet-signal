@@ -35,12 +35,62 @@ type Props = {
 // fitted. Each bucket therefore drops a step, and the pill's horizontal
 // padding is halved to give the longest words a little more room to land in
 // (five pills share the screen width, so padding is worth ~2 characters).
+//
+// This is only the STARTING size - see PillLabel. Character count is a poor
+// proxy for rendered width ("Overwhelmed" carries both a w and an m and is
+// far wider than "Overloaded" despite being one character longer), and v38
+// and v39 each shipped a threshold that was still wrong on device. The
+// measurement in PillLabel is what actually guarantees the fit; this just
+// gets the first paint close so there's nothing visible to settle.
 function pillFontSize(text: string): number {
   if (text.includes(" ")) return 12;
   if (text.length >= 11) return 9; // Overwhelmed
   if (text.length >= 10) return 9.5; // Overloaded
   if (text.length >= 8) return 10; // Grounded, Triggered
   return 12;
+}
+
+const MIN_PILL_FONT_SIZE = 7;
+
+// Shrinks a single-word label until it actually stops being truncated, rather
+// than trusting a hardcoded size to be right. onTextLayout reports what the
+// device actually laid out, so "does this fit" becomes a fact we read back
+// instead of a prediction from character count - which is what both previous
+// attempts got wrong, on the same label, because they were estimated from a
+// screenshot. Steps down half a point at a time from pillFontSize's estimate
+// and stops at the first size that fits, so it stays as large as it can and
+// settles in a frame or two. Also adapts to a large system font scale, which
+// no fixed size could.
+//
+// Multi-word labels are left alone: they wrap at their spaces, which reads
+// fine, and forcing them onto one line would make them needlessly small.
+function PillLabel({ text, color }: { text: string; color: string }) {
+  const isSingleWord = !text.includes(" ");
+  const [fontSize, setFontSize] = React.useState(() => pillFontSize(text));
+
+  // Reset if the label itself changes (the PTSD scale has been reworded once
+  // already), so a size measured for the old string isn't carried over.
+  React.useEffect(() => setFontSize(pillFontSize(text)), [text]);
+
+  return (
+    <Text
+      style={[styles.pillText, { color, fontSize }]}
+      numberOfLines={isSingleWord ? 1 : 2}
+      ellipsizeMode="clip"
+      onTextLayout={(e) => {
+        if (!isSingleWord || fontSize <= MIN_PILL_FONT_SIZE) return;
+        // With numberOfLines={1} an over-wide word is truncated rather than
+        // broken onto a second line, so a laid-out line whose text is shorter
+        // than the label is exactly the "didn't fit" signal.
+        const line = e.nativeEvent.lines[0];
+        if (line && line.text.trim() !== text.trim()) {
+          setFontSize((s) => Math.max(MIN_PILL_FONT_SIZE, s - 0.5));
+        }
+      }}
+    >
+      {text}
+    </Text>
+  );
 }
 
 export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
@@ -69,18 +119,7 @@ export function ScaleInput({ label, value, onChange, scaleLabels }: Props) {
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.pillText,
-                  {
-                    color: selected ? theme.onPrimary : theme.text,
-                    fontSize: pillFontSize(text),
-                  },
-                ]}
-                numberOfLines={2}
-              >
-                {text}
-              </Text>
+              <PillLabel text={text} color={selected ? theme.onPrimary : theme.text} />
             </Pressable>
           );
         })}
