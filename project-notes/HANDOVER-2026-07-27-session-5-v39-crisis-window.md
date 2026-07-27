@@ -1,6 +1,6 @@
 # Quiet Signal — Handover (Jul 27, session 5)
 
-Continues from the Jul 27 session-4 handover. This session: shipped v39, worked out why the crisis support screen kept resurfacing days after the entry that caused it and gave it a real expiry, fixed three PDF report bugs, corrected two standing facts session 4 got wrong, and got the four outstanding commits pushed — `main` and `origin/main` are level for the first time since session 3.
+Continues from the Jul 27 session-4 handover. This session shipped **v39 through v42**: gave the crisis support screen a real expiry after working out why it resurfaced days later, fixed four PDF report bugs, settled the check-in scale labels after three failed attempts, fixed a navigation bug that stuck the Settings tab on the recipient screen, ran a full security/data audit, and cleared the push backlog — `main` and `origin/main` have been level since the first push and every commit is up.
 
 ## What the app is (unchanged)
 
@@ -60,6 +60,41 @@ A "1 Warning" appeared on the review step before publishing and was not read. It
 
   As of v39 on device, `Grounded`, `Triggered` and `Overloaded` all fit on one line; only `Overwhelmed` did not. Shipped in v40, **not yet verified on device**. Richard's alternative suggestion, if the auto-shrink doesn't satisfy: hardcode `Over\nwhelmed`. Note that's what the code did until v38 — the same map also produced `Ground\ned` and `Trigger\ned` with the orphaned "ed" that prompted the original complaint, but for "Overwhelmed" alone it did look acceptable.
 
+## Releases: v41 and v42
+
+**v41** — check-in scales. Confirmed good on device: every option in a row now renders at the same size.
+
+* `ScaleInput` owns **one font size per row** rather than one per pill. Independent sizing kept every word on its own line but left three different text sizes side by side ("Calm" at full size next to a visibly smaller "Overwhelmed"), which read as uneven and pulled the eye to the smallest option instead of presenting five equal choices. Pills report "too wide" along with the size they were measured at, and the row only steps down if that still matches — otherwise three pills reporting off one layout pass would drop the row 1.5pt at once and overshoot.
+* **Labels shortened** so the rows can stay at full size. `Overwhelmed` → `At my limit`, `Grounded` → `Steady`, `Overloaded` → `Too much`. Only *unbroken words* are constrained; multi-word labels wrap at their spaces, so "A little on edge" at 16 characters costs nothing while "Overwhelmed" at 11 forced the whole row down. Roughly 7 characters is the ceiling for a single word at full size. **`Triggered` (9) was kept deliberately** — it's the term people with PTSD use, and the alternatives that fit ("Set off") lose that recognition, so the PTSD row sits slightly below full size but uniformly. The constraint is now documented at the top of `scaleLabels.ts`, since it isn't visible from reading the strings and is what tripped up v38, v39 and v40.
+* Renaming is **retroactive in display only** — labels are looked up by score, so past check-ins now read with the new wording in History and in new PDF exports. No stored data changed.
+
+**v42** — PDF summary and a navigation fix.
+
+* **PDF summary was rendering as one run-on paragraph.** `summaryText` is built as lines joined with `\n` (title, body, blank, footer), which is right for the share sheet, but the PDF dropped it into a div with no `white-space` rule and HTML collapsed the newlines. `white-space: pre-line` restores it — `<br>` wouldn't work because `escapeHtml` strips tags.
+* **The summary appeared to contradict itself.** "Pain's stayed steady" immediately followed by "pain Severe" reads as a contradiction. It isn't one — the first describes *change across the period*, the second the *level on the final day*, and pain that's severe every day is genuinely both. But a reader can't tell that from the wording, and this is a document someone hands to their GP, so it can't depend on the distinction being inferred. Now: trend sentence prefixed "Over that time", "steady" → "stayed about the same" (which also drops the faint suggestion of *fine* that "steady" carried), and the last sentence reads "On 27 July itself, pain was Severe". Range no longer repeated three times; "ptsd" capitalised.
+* **Settings tab got stuck on "Shared with".** `goAddRecipient` navigated `Main > Settings > Recipients` with nested params. Those params live on the Settings **tab route** and persist after you leave the screen — and the tab carries `unmountOnBlur` (added earlier to stop it reopening on its last-visited screen), so every remount re-applied them and jumped straight back to Recipients. The two fixes were fighting and the params won. `RecipientsScreen` is now **also registered on the root stack as `ShareAddRecipient`**, which the share flow opens, so nothing is written to the Settings tab and there's nothing to replay. Back returns to the share screen rather than the settings menu — the second half of the same bug. The `initial: false` workaround is gone. Safe outside the tab navigator because `RecipientsScreen` doesn't call `useBottomTabBarHeight()`. `unmountOnBlur` stays for the Settings-internal case.
+
+## Final audit (end of session 5)
+
+Run as a last pass before the final build. Everything below was checked against live state, not against the migration files.
+
+* **All 26 RLS policies in `public` are owner-scoped.** `checkins_select_own` verified correctly parenthesised — the precedence bug is genuinely gone from the deployed policy.
+* **The 16-auth-users vs 15-profiles item is resolved and is not a bug.** The profile-less account is `zargona2z@gmail.com`, created 1 July, email never confirmed, never signed in. Profiles are created on first sign-in, which never happened. 14 of the 16 accounts are `testuser*@example.com` fixtures.
+* **Cron healthy** — `nightly-journal-scan` (03:00) and `checkin-archive-scan` (03:15) have both succeeded every night through 27 July.
+* **Migrations clean** — 17 applied, 17 in repo, all matching by name.
+* **Free/Pro history ranges align with RLS.** Free is 7/30 days, Pro adds 60/90, and the RLS policy grants unrestricted history only to pro. So a free user can't select a range RLS would silently truncate. Went looking for a bug here; there isn't one.
+* **Two security advisors, both reviewed and deliberately left:** `under_free_recipient_limit()` is `SECURITY DEFINER` and callable via RPC, but it filters on `auth.uid()` internally, returns only a boolean about the caller's own count, and *must* be DEFINER — making it INVOKER is what caused the recursion bug fixed in `fix_recipients_insert_recursion`. Leaked password protection is **off deliberately**: it's Pro-plan gated and Richard is on the free plan. Not an oversight — don't re-raise it as a to-do. Worth revisiting before any public launch, since it protects against credential reuse (a forgot-password link addresses recovery, which is a different problem). Minimum password length and character requirements *are* available on the free plan if a partial measure is wanted.
+* **Two performance advisors**, both trivial at this data size (`user_entitlements` initplan, an unused index).
+
+## Sentry: what the errors actually are
+
+Worth reading before treating `REACT-NATIVE-1/2/3` as outstanding bugs.
+
+* They are **handled diagnostics, not failures**. `signOut timed out after 6000ms` carries `handled: yes` and `outcome: local-fallback` — the network sign-out was slow, the 6s guard fired, and it fell back to a local sign-out. The person still got signed out. `getSession still running after 6000ms` is a soft warning (`outcome: slow`) that forces nothing.
+* **They're one bad minute on one phone.** `REACT-NATIVE-1` and `-3` share a trace ID, device and app session: a single cold start at 08:58:34 on 27 July on a Samsung SM-A055F (`device.class: low`, 3.8 GB RAM, Mediatek, wifi). That device is **Richard's own test phone**. The "5 users impacted" is an artefact — install IDs regenerate on reinstall, and the app was reinstalled repeatedly that day.
+* **Every error event in the last 30 days is from builds 25, 28, 29, 33 and 35. Nothing from 37 onward.** That's consistent with the `timeoutFetch` wrapper (added 26 July, so v37+) having fixed them.
+* **But that can't be distinguished from Sentry not reporting on ≥37 at all.** The last event from any build is 35, and `reportDataError` has never produced an event on any build. Absence of errors and absence of reporting look identical from the outside. Treat "Sentry is healthy on current builds" as an assumption, not a fact, until something positively proves it.
+
 ## Play Console state
 
 * App status is **Draft / Internal testing**, "Not yet sent for review". Temporary app name `com.quietsignal.app (unreviewed)` shows to testers until review.
@@ -79,9 +114,13 @@ v37  b7deadaa4399c7d95bc671041754344b
 v38  8da047f445451aaecced98454f33ce81
 v39  d81d92df20682cd4a26d292fc09bae97
 v40  112a42be8ab315093e13aba6fdb7d99c
+v41  b6cfd73c5082856ac3788ec388bb905c
+v42  e2d32fd97d2cc1c2a1d7f409599439ef
 ```
 
 v39 additionally verified by string: `table-layout` appears twice (new PDF CSS), and `note_scanned_at` / `processed_at` appear in the app bundle for the first time — they only entered client code with the crisis-window change. `Ground\ned` remains absent.
+
+v41 and v42 both got proper two-way string checks (new literals present, removed ones absent), which is the standard to aim for: `At my limit` / `Steady` / `Too much` / `needs 2+ entries` present and `Overwhelmed` / `Grounded` / `Overloaded` absent in v41; `Over that time` / `stayed about the same` / `pre-line` / `ShareAddRecipient` present and `stayed steady` / `That day: pain` absent in v42.
 
 **The string check was inconclusive for v40, and this is a trap worth remembering.** `onTextLayout` and `ellipsizeMode` look like they'd prove `PillLabel` shipped, but both are already present in v39's bundle — they come from React Native's own `Text` internals, not our code. Our own identifiers (`PillLabel`, `MIN_PILL_FONT_SIZE`) are minified away and aren't greppable either. So for a change that adds no new *string literal*, the hash comparison is the only evidence available; don't mistake a matching framework symbol for confirmation.
 
@@ -98,17 +137,19 @@ v39 additionally verified by string: `table-layout` appears twice (new PDF CSS),
    `/tmp` is a RAM-backed tmpfs capped at ~4.9G and EAS wants 10G+; without this the build dies with `No space left on device` after ~18 minutes despite hundreds of gigs free. Record the commit hash EAS prints at the start — `git log -1` afterwards isn't reliable, since Claude Code may commit mid-build. A failed build still consumes a version code.
 6. **Verify the bundle by hash, not by grep.** `index.android.bundle` is Hermes bytecode (magic `c61fbc03`), so grepping for code always fails whether or not the change is present; only the string table is greppable. Extract from the `.aab` (`base/assets/index.android.bundle`), `md5sum` it, compare against the previous build's hash above. Where a change adds or removes a string literal, grep is a useful extra check.
 7. Upload to **internal testing** — an `.aab` can't be sideloaded, so this is the only route onto the device. Don't navigate away or reload the tab while the upload is in flight; the page warns that leaving cancels it.
-8. **Add release notes after publishing, not before.** Typing them into the Prepare release page does not survive the page re-render that happens when the bundle upload finishes — it was lost that way on both v39 and v40. The reliable route is: publish, then Internal testing → the release → **Manage release** → **Edit release details**, paste inside the `<en-GB>` tags, Save. Limit is 500 characters per language.
+8. **Add release notes after publishing, not before.** Typing them into the Prepare release page does not survive the page re-render that happens when the bundle upload finishes — it was lost that way on v39, v40, v41 and v42, so this is reliable behaviour rather than bad luck. The route that works: publish, then Internal testing → the release → **Manage release** → **Edit release details**, paste inside the `<en-GB>` tags, Save. Limit is 500 characters per language.
 
 ## What's left to do
 
-1. **Verify the label auto-shrink on device.** Shipped in v40; "Overwhelmed" on one line in the Anxiety scale is the check. If it still breaks, the fallback is Richard's `Over\nwhelmed` split (see above) — but note the auto-shrink is a different *kind* of fix from v38's and v39's failed attempts: it reads the laid-out line back from the device rather than predicting width from character count, so a failure here would mean the `onTextLayout` signal isn't firing as expected, not that another threshold needs picking.
-2. **Confirm `reportDataError` actually reaches Sentry.** Still the one unverified link in the chain, carried from session 3. It has zero events, while `reportAuthHang` has three live issues through the identical `Sentry.captureException` path — so the wiring looks structurally sound but is still unproven.
-3. **`getSession` / `signOut` slow path.** Sentry `REACT-NATIVE-1` (`signOut timed out after 6000ms`, 31 events / 5 users), `REACT-NATIVE-2` (`getSession never settled after 45000ms`), and a **new** `REACT-NATIVE-3` (`getSession still running after 6000ms`, first seen 26 Jul). Suggested next step unchanged: a duration-only breadcrumb around the AsyncStorage persisted-session read.
-4. **Decide whether to submit the 11 pending Play Console changes.** Not blocking internal testing. Remember managed publishing is off.
-5. **16 auth users but 15 profiles** — one account has no profile row. Still not investigated.
-6. Cosmetic: the PDF summary sentence reads "ptsd Triggered" in lowercase. Consistent with "pain" and "anxiety" either side of it, but an acronym in lowercase reads oddly.
-7. Session-3's "check-in produced no POST at all" has not recurred. Leave open but downgraded.
+Everything Richard reported this session is fixed and confirmed on device. v42 is the last build of session 5 and he's signed it off. What remains:
+
+1. **Prove Sentry is actually reporting on current builds.** The single most valuable open item, and it now subsumes the old "confirm `reportDataError` reaches Sentry". No event has arrived from any build ≥37, and `reportDataError` has never produced one on any build. That's consistent with the timeouts being fixed, and equally consistent with the SDK being silent — the two are indistinguishable from outside. Cheapest resolution: ship one build that deliberately fires a `reportDataError` on startup, confirm it lands in Sentry, remove it. Until then, treat the clean error feed as unproven rather than as good news.
+2. **`getSession` / `signOut` slow path.** See the Sentry section above before spending time here — these are handled diagnostics with working fallbacks, all from builds ≤35, all from one low-end test device in a single bad minute. Possibly already fixed by `timeoutFetch` (v37+). Blocked behind item 1: you can't tell whether it's fixed until you can tell whether Sentry is reporting. If it does turn out to need work, the suggested step is unchanged: a duration-only breadcrumb around the AsyncStorage persisted-session read.
+3. **Decide whether to submit the 11 pending Play Console changes.** Not blocking internal testing. Remember managed publishing is **off**, so approval publishes automatically.
+4. **Before any public launch:** revisit leaked password protection (Pro-plan gated, deliberately off on the free plan — see the audit section), and note the app is still in **Draft / Not yet sent for review** with a temporary app name.
+5. Session-3's "check-in produced no POST at all" has not recurred across the whole of session 5. Leave open but downgraded further.
+
+Closed this session and **not** to be re-raised: the 16-vs-15 profiles mismatch (benign, see audit), the lowercase "ptsd" in the PDF (fixed in v42), the scale-label sizing (settled in v41), and leaked password protection (a deliberate plan decision, not an oversight).
 
 ## Test data note
 
