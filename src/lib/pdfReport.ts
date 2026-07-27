@@ -72,7 +72,14 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
           body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #1C2240; padding: 8px; margin: 0; }
           h1 { font-size: 22px; margin-bottom: 4px; }
           .muted { color: #545D8A; font-size: 13px; margin-bottom: 24px; }
-          .summary { background: #EDF0FA; border-radius: 12px; padding: 16px; font-size: 15px; line-height: 1.5; margin-bottom: 24px; }
+          /* white-space: pre-line is load-bearing. summaryText arrives as
+             several lines joined with \n (title, body, blank, footer - see
+             buildShareSummary), which is right for the share sheet but HTML
+             collapses newlines into spaces, so in the PDF the title ran
+             straight into the body: "...summary - last 7 days Checked in 3 of
+             the last 7 days...". This restores the structure the text already
+             has without needing <br> tags, which escapeHtml would eat anyway. */
+          .summary { background: #EDF0FA; border-radius: 12px; padding: 16px; font-size: 15px; line-height: 1.5; margin-bottom: 24px; white-space: pre-line; }
           /* table-layout: fixed so the Note column can't widen the table past
              the page to fit a long entry on one line (auto layout did exactly
              that, clipping the note instead of wrapping it). */

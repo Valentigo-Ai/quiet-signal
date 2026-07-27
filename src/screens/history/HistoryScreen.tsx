@@ -233,19 +233,33 @@ export function HistoryScreen() {
     // actual amount of energy rather than the stored severity number.
     const energy = describeTrend(4 - first.energy_score, 4 - last.energy_score);
 
+    // "stayed about the same" rather than "stayed steady". This sentence
+    // describes CHANGE across the period; the sentence after it describes the
+    // LEVEL on the final day. Both can be true at once - pain that is severe
+    // every single day is both "steady" and "Severe" - but read back to back,
+    // "Pain's stayed steady... pain Severe" looks like the report is
+    // contradicting itself, and this is a summary someone hands to their GP,
+    // so it can't depend on the reader inferring the distinction. "Steady"
+    // also carries a faint sense of "fine", which it doesn't mean here.
     const paceWord = (dir: "up" | "down" | "steady") =>
-      dir === "steady" ? "stayed steady" : dir === "up" ? "crept up a bit" : "eased off a bit";
+      dir === "steady" ? "stayed about the same" : dir === "up" ? "crept up a bit" : "eased off a bit";
     const energyWord = (dir: "up" | "down" | "steady") =>
-      dir === "steady" ? "stayed steady" : dir === "up" ? "been trending up" : "been trending down";
+      dir === "steady"
+        ? "stayed about the same"
+        : dir === "up"
+          ? "been trending up"
+          : "been trending down";
 
-    const painPhrase = `Pain's ${paceWord(pain)}`;
+    const painPhrase = `pain's ${paceWord(pain)}`;
     const anxietyPhrase = `anxiety's ${paceWord(anxiety)}`;
     let energyPhrase = `energy's ${energyWord(energy)}`;
     if (energy !== "steady" && energy === anxiety) {
       energyPhrase += " too";
     }
 
-    return `${painPhrase}, ${anxietyPhrase}, ${energyPhrase}.`;
+    // Explicitly framed as a comparison over the period, so the reader is told
+    // what these words are measuring rather than having to work it out.
+    return `Over that time, ${painPhrase}, ${anxietyPhrase} and ${energyPhrase}.`;
   }, [checkins]);
 
   // null for 7/30-day views (daily list/table as before); an array of
@@ -275,17 +289,30 @@ export function HistoryScreen() {
     const last = checkins[checkins.length - 1];
     const count = checkins.length;
 
+    // "of those days" rather than repeating "of the last N days" - the range
+    // is already in the title line directly above (and again in the PDF's own
+    // header), so saying it a third time in the same breath read as clumsy.
     const checkedInPhrase =
       count === 1
-        ? `Checked in once in the last ${range} days, on ${humanDate(last.date)}.`
-        : `Checked in ${count} of the last ${range} days, last one on ${humanDate(last.date)}.`;
+        ? `Checked in once, on ${humanDate(last.date)}.`
+        : `Checked in ${count} of those days, last one on ${humanDate(last.date)}.`;
 
     const trendPhrase = trendSummary ?? "Not quite enough check-ins yet to show a trend.";
 
-    const ptsdPhrase = last.ptsd_score !== null ? `, ptsd ${PTSD_LABELS[last.ptsd_score]}` : "";
-    const dayPhrase = `That day: pain ${PAIN_LABELS[last.pain_score]}, anxiety ${
-      ANXIETY_LABELS[last.anxiety_score]
-    }${ptsdPhrase}, energy ${ENERGY_LABELS[last.energy_score]}.`;
+    // Names the date rather than saying "That day". The trend sentence sits
+    // between this and the date it refers back to, so by the time you reach
+    // "That day" the referent is two sentences away and easy to lose.
+    //
+    // "itself" and the past tense ("pain was Severe") mark this out as a
+    // single day's levels, against the preceding sentence's change-over-time -
+    // see the note on paceWord above for why that distinction has to be
+    // explicit rather than inferred.
+    const ptsdPhrase = last.ptsd_score !== null ? `, PTSD ${PTSD_LABELS[last.ptsd_score]}` : "";
+    const dayPhrase = `On ${humanDate(last.date)} itself, pain was ${
+      PAIN_LABELS[last.pain_score]
+    }, anxiety ${ANXIETY_LABELS[last.anxiety_score]}${ptsdPhrase}, energy ${
+      ENERGY_LABELS[last.energy_score]
+    }.`;
 
     const lines: string[] = [];
     lines.push(`Quiet Signal check-in summary — last ${range} days`);
