@@ -227,6 +227,40 @@ export function RootNavigator() {
                 headerShadowVisible: false,
               }}
             />
+            {/* The same RecipientsScreen is also registered inside the
+                Settings tab's stack. This root-level copy exists for the
+                check-in share flow (ShareFlowScreen's "add someone to share
+                with"), which used to reach the Settings copy by navigating
+                Main > Settings > Recipients with nested params.
+
+                That caused two problems. Those nested params are stored on
+                the Settings TAB route and persist after you leave the screen,
+                and the tab carries unmountOnBlur (added to stop the Settings
+                tab reopening on its last-visited screen) - so every time the
+                tab remounted, React Navigation re-applied the stored params
+                and jumped straight back to Recipients. Tapping Settings gave
+                you "Shared with" instead of the settings menu. Second, because
+                the screen lived inside Settings, its back button meant "back
+                within Settings", so backing out of the share flow dropped you
+                on the settings menu rather than the share screen you came
+                from.
+
+                Opening it at root level fixes both: nothing is written to the
+                Settings tab, and back returns to ShareFlow. Safe to render
+                outside the tab navigator because RecipientsScreen doesn't call
+                useBottomTabBarHeight(). */}
+            <RootStack.Screen
+              name="ShareAddRecipient"
+              component={RecipientsScreen}
+              options={{
+                headerShown: true,
+                title: "Shared with",
+                headerStyle: { backgroundColor: theme.surface },
+                headerTintColor: theme.text,
+                headerTitleStyle: { color: theme.text },
+                headerShadowVisible: false,
+              }}
+            />
             <RootStack.Screen
               name="Upgrade"
               component={UpgradeScreen}

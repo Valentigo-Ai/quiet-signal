@@ -119,16 +119,14 @@ export function ShareFlowScreen() {
 
   const keepPrivate = () => navigation.navigate("Main", { screen: "CheckIn" });
 
-  const goAddRecipient = () => {
-    // initial: false keeps SettingsHome underneath Recipients in the nested
-    // stack's history, instead of Recipients becoming the only screen ever
-    // pushed into that stack. Without it, native-stack has nothing to "go
-    // back" to, so no back button renders and Settings looks stuck/broken.
-    navigation.navigate("Main", {
-      screen: "Settings",
-      params: { screen: "Recipients", initial: false },
-    });
-  };
+  // Opens the recipient screen at ROOT level rather than reaching into the
+  // Settings tab. The previous version navigated Main > Settings > Recipients
+  // with nested params, which left those params on the Settings tab route:
+  // combined with that tab's unmountOnBlur, every remount replayed them and
+  // reopened "Shared with" instead of the settings menu. It also meant back
+  // led into Settings rather than returning here. See the ShareAddRecipient
+  // route in RootNavigator for the full note.
+  const goAddRecipient = () => navigation.navigate("ShareAddRecipient");
 
   return (
     <ScreenBackground source={getSource("share")} edges={["bottom", "left", "right"]}>
