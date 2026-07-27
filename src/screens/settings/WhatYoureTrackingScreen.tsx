@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAppTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -31,6 +32,7 @@ export function WhatYoureTrackingScreen() {
   const { theme } = useAppTheme();
   const { session } = useAuth();
   const navigation = useNavigation<any>();
+  const tabBarHeight = useBottomTabBarHeight(); // tab bar floats over content (see SettingsScreen/RootNavigator)
 
   const [selected, setSelected] = useState<string[]>([]);
   const [other, setOther] = useState("");
@@ -114,7 +116,7 @@ export function WhatYoureTrackingScreen() {
   return (
     <ScrollView
       style={{ backgroundColor: theme.background }}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[styles.container, { paddingBottom: tabBarHeight + spacing.lg }]}
       keyboardShouldPersistTaps="handled"
     >
       <Text style={[styles.subtitle, { color: theme.textMuted }]}>{PRESENTING_CONCERNS_BLURB}</Text>
