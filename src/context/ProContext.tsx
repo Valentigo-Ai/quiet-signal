@@ -1,13 +1,22 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Purchases, {
   LOG_LEVEL,
   PACKAGE_TYPE,
+  type CustomerInfo,
   type PurchasesPackage,
 } from "react-native-purchases";
 import type { ProPlanId } from "@/constants/proPricing";
 import { hasProEntitlement, deriveIsPro } from "@/lib/proEntitlement";
+import {
+  activeProProductId,
+  baseProductId,
+  isUserCancelled,
+  planFromProductId,
+  PurchaseError,
+  replacementModeFor,
+} from "@/lib/purchaseErrors";
 import { supabase } from "@/lib/supabase";
 import { reportDataError } from "@/lib/sentry";
 
@@ -56,6 +65,13 @@ type ProContextValue = {
   ready: boolean;
   /** Real store-localized price strings once offerings have loaded (e.g. "£3.99"). */
   livePrices: Partial<Record<ProPlanId, string>>;
+  /**
+   * The plan currently subscribed to through the store, or null. Null while
+   * still free, and also null for Pro granted promotionally in RevenueCat
+   * (there's no store subscription behind it), so the paywall can tell "on
+   * monthly, could switch to yearly" apart from "Pro, nothing to switch".
+   */
+  currentPlan: ProPlanId | null;
   /** Returns true if the purchase completed and the "pro" entitlement is now active. */
   purchasePro: (plan: ProPlanId) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
@@ -79,9 +95,18 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
   const [devPro, setDevPro] = useState(false);
   const [ready, setReady] = useState(false);
   const [livePrices, setLivePrices] = useState<Partial<Record<ProPlanId, string>>>({});
+  const [currentPlan, setCurrentPlan] = useState<ProPlanId | null>(null);
   const packagesRef = useRef<PurchasesPackage[]>([]);
   // The Supabase user id currently identified to RevenueCat (null = anonymous).
   const identifiedRef = useRef<string | null>(null);
+
+  // Entitlement and current plan always come from the same CustomerInfo, so
+  // they're set together. Letting them drift is how a paywall ends up offering
+  // someone the plan they're already paying for.
+  const applyCustomerInfo = useCallback((info: CustomerInfo) => {
+    setEntitled(hasProEntitlement(info));
+    setCurrentPlan(planFromProductId(activeProProductId(info)));
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -115,7 +140,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
           // Live entitlement updates (renewals, purchases on other devices,
           // cancellations) flow in here without a manual refresh.
           Purchases.addCustomerInfoUpdateListener((updated) => {
-            setEntitled(hasProEntitlement(updated));
+            applyCustomerInfo(updated);
           });
 
           // Keep RevenueCat's identity in lockstep with the Supabase user, so
@@ -130,13 +155,13 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
                 if (identifiedRef.current === userId) return;
                 const { customerInfo } = await Purchases.logIn(userId);
                 identifiedRef.current = userId;
-                if (mounted) setEntitled(hasProEntitlement(customerInfo));
+                if (mounted) applyCustomerInfo(customerInfo);
               } else if (identifiedRef.current) {
                 // Only log out if a real user was previously identified;
                 // Purchases.logOut() throws when already anonymous.
                 const info = await Purchases.logOut();
                 identifiedRef.current = null;
-                if (mounted) setEntitled(hasProEntitlement(info));
+                if (mounted) applyCustomerInfo(info);
               }
             } catch (e) {
               console.warn("[Pro] RevenueCat identity sync failed:", e);
@@ -154,7 +179,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
             await syncIdentity(initialUserId);
           } else {
             const info = await Purchases.getCustomerInfo();
-            if (mounted) setEntitled(hasProEntitlement(info));
+            if (mounted) applyCustomerInfo(info);
           }
           authSub = supabase.auth.onAuthStateChange((_event, s) => {
             void syncIdentity(s?.user?.id ?? null);
@@ -215,15 +240,44 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
       throw new Error("That plan isn't available right now - please try again in a moment.");
     }
 
+    // Google treats a second purchase inside one subscription group as a plan
+    // change, not a new sale, and refuses it outright unless we hand it the
+    // product being replaced plus a replacement mode. Without that it fails as
+    // a DEVELOPER_ERROR that surfaces to the person as "One or more of the
+    // arguments provided are invalid" - see purchaseErrors.ts.
+    let owned: string | null = null;
     try {
-      const { customerInfo } = await Purchases.purchasePackage(pkg);
-      const active = hasProEntitlement(customerInfo);
-      setEntitled(active);
-      return active;
+      owned = activeProProductId(await Purchases.getCustomerInfo());
+    } catch (e) {
+      // Non-fatal: worst case we attempt a plain purchase, which is exactly
+      // the behaviour before this check existed.
+      console.warn("[Pro] Couldn't read current subscriptions before purchase:", e);
+    }
+
+    const targetId = baseProductId(pkg.product.identifier);
+    // Already on this very plan - don't send them to Play to buy it twice.
+    if (owned && owned === targetId) {
+      const info = await Purchases.getCustomerInfo();
+      applyCustomerInfo(info);
+      return hasProEntitlement(info);
+    }
+
+    const isPlanChange = owned !== null;
+
+    try {
+      const { customerInfo } = await Purchases.purchasePackage(
+        pkg,
+        null,
+        isPlanChange
+          ? { oldProductIdentifier: owned as string, replacementMode: replacementModeFor(plan) }
+          : null,
+      );
+      applyCustomerInfo(customerInfo);
+      return hasProEntitlement(customerInfo);
     } catch (e: any) {
       // User backed out of the Play purchase sheet - not an error to surface.
-      if (e?.userCancelled) return false;
-      throw e;
+      if (isUserCancelled(e)) return false;
+      throw new PurchaseError(e, isPlanChange);
     }
   };
 
@@ -232,9 +286,8 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
       return __DEV__ ? devPro : false;
     }
     const info = await Purchases.restorePurchases();
-    const active = hasProEntitlement(info);
-    setEntitled(active);
-    return active;
+    applyCustomerInfo(info);
+    return hasProEntitlement(info);
   };
 
   // A real "pro" entitlement always wins; the dev toggle only adds access in
@@ -243,7 +296,7 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ProContext.Provider
-      value={{ isPro, ready, livePrices, purchasePro, restorePurchases, _devSetPro }}
+      value={{ isPro, ready, livePrices, currentPlan, purchasePro, restorePurchases, _devSetPro }}
     >
       {children}
     </ProContext.Provider>

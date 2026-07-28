@@ -8,6 +8,7 @@ import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { describePasswordResetError, describeRecoverySendError } from "@/lib/authErrors";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -48,15 +49,11 @@ export function ResetPasswordScreen() {
       // Success: the user is now signed in and RootNavigator will move them
       // on automatically. Nothing else to do here.
     } catch (e: any) {
-      const msg = String(e?.message ?? e).toLowerCase();
-      if (msg.includes("expired") || msg.includes("invalid") || msg.includes("token")) {
-        Alert.alert(
-          "That code didn't work",
-          "It may be wrong or expired. Codes last a short time - tap \"Resend code\" to get a fresh one."
-        );
-      } else {
-        Alert.alert("Couldn't reset your password", "Something went wrong. Please try again.");
-      }
+      // describePasswordResetError knows whether the code or the new password
+      // was rejected; an "update" failure means they're already signed in, and
+      // the copy says so rather than implying they're locked out.
+      const { title, body } = describePasswordResetError(e);
+      Alert.alert(title, body);
     } finally {
       setLoading(false);
     }
@@ -71,8 +68,12 @@ export function ResetPasswordScreen() {
     try {
       await requestPasswordReset(emailFromRoute);
       Alert.alert("Code sent", "We've sent a new code to your email.");
-    } catch {
-      Alert.alert("Couldn't resend", "Please check your connection and try again.");
+    } catch (e: any) {
+      // A second tap inside Supabase's 60-second window is a 429, not a
+      // failure - the first email is already in flight. Saying "couldn't
+      // resend" there sends people looking for a problem that isn't there.
+      const { title, body } = describeRecoverySendError(e);
+      Alert.alert(title, body);
     } finally {
       setResending(false);
     }

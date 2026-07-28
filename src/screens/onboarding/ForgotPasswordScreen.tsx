@@ -7,6 +7,7 @@ import { useBackgroundPrefs } from "@/context/BackgroundPrefsContext";
 import { ScreenBackground } from "@/components/ScreenBackground";
 import { TextOnPhoto } from "@/components/TextOnPhoto";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { describeRecoverySendError, isRateLimited } from "@/lib/authErrors";
 import { spacing, fontSizes, fonts } from "@/lib/theme";
 
 // Step 1 of password reset: ask for the email, trigger the recovery email.
@@ -34,10 +35,14 @@ export function ForgotPasswordScreen() {
       // account - not disclosing that is deliberate for a health app.
       navigation.navigate("ResetPassword", { email: email.trim() });
     } catch (e: any) {
-      Alert.alert(
-        "Couldn't send the code",
-        "Something went wrong sending your reset code. Check your connection and try again."
-      );
+      const { title, body } = describeRecoverySendError(e);
+      Alert.alert(title, body);
+      // Rate limited means an email went out moments ago, so the code screen
+      // is still where they need to be - blocking them here would strand
+      // someone who has a perfectly good code sitting in their inbox.
+      if (isRateLimited(e)) {
+        navigation.navigate("ResetPassword", { email: email.trim() });
+      }
     } finally {
       setLoading(false);
     }

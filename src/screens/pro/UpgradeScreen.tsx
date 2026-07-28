@@ -10,6 +10,7 @@ import { getProPlans } from "@/constants/proPricing";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ConfettiBurst } from "@/components/ConfettiBurst";
 import { BACKGROUND_IMAGES, BackgroundImageId } from "@/constants/backgroundLibrary";
+import { describePurchaseError } from "@/lib/purchaseErrors";
 import { spacing, fontSizes, radii, raisedShadow, fonts } from "@/lib/theme";
 
 // Placeholder paywall UI (Section: Pro tier, July 2026). Crisis resources,
@@ -51,27 +52,51 @@ const PREVIEW_IDS: BackgroundImageId[] = [
 
 export function UpgradeScreen() {
   const { theme } = useAppTheme();
-  const { isPro, purchasePro, restorePurchases, livePrices } = usePro();
+  const { isPro, currentPlan, purchasePro, restorePurchases, livePrices } = usePro();
   const { info: countryInfo } = useCrisisCountry();
   const navigation = useNavigation<any>();
   const [busy, setBusy] = useState(false);
-  const [plan, setPlan] = useState<ProPlanId>("yearly");
+  // Default the selection to the plan they're NOT on, so a subscriber landing
+  // here sees the switch offered rather than their own plan pre-selected.
+  const [plan, setPlan] = useState<ProPlanId>(currentPlan === "yearly" ? "monthly" : "yearly");
   const [showWelcome, setShowWelcome] = useState(false);
   const plans = getProPlans(countryInfo.code);
+
+  // Someone paying through the store can move between the two plans; someone
+  // on a promotional Pro grant has no store subscription to change, and
+  // currentPlan is null for them, so they see the plain "already on Pro" line.
+  const canSwitchPlan = currentPlan !== null && plan !== currentPlan;
+  const onSelectedPlan = currentPlan !== null && plan === currentPlan;
 
   const handleSubscribe = async () => {
     setBusy(true);
     try {
+      const wasSwitch = canSwitchPlan;
       const purchased = await purchasePro(plan);
-      // Only celebrate on a real, completed purchase - if the person backed
-      // out of the Play sheet, purchasePro returns false and we stay put.
+      if (!purchased) return; // backed out of the Play sheet - stay put
+      if (wasSwitch) {
+        // Not a moment for confetti - they were already Pro. What they need is
+        // confirmation of when the change takes effect, because upgrade and
+        // downgrade behave differently by design (see replacementModeFor).
+        Alert.alert(
+          "Plan changed",
+          plan === "yearly"
+            ? "You're on the yearly plan now. Google will charge the difference for the rest of this period."
+            : "You'll move to monthly billing when your current period ends. Nothing changes before then.",
+        );
+        return;
+      }
       // Checkout-moment celebration (Pro tier). This is the one screen in
       // the app that's deliberately a bit flashy on purpose - see
       // ConfettiBurst - because someone just paid for the app and a plain
       // system Alert undersold that. Dismissing takes them back to Settings.
-      if (purchased) setShowWelcome(true);
+      setShowWelcome(true);
     } catch (e: any) {
-      Alert.alert("Purchase didn't go through", e?.message ?? "Something went wrong. Please try again.");
+      // Raw billing-library strings ("One or more of the arguments provided
+      // are invalid") mean nothing to the person holding the phone, and turn
+      // a recoverable plan change into something that reads like a fault.
+      const { title, body } = describePurchaseError(e);
+      Alert.alert(title, body);
     } finally {
       setBusy(false);
     }
@@ -147,7 +172,7 @@ export function UpgradeScreen() {
                 <Text style={{ color: theme.text, fontWeight: "700" }}>{p.label}</Text>
                 <Text style={[styles.price, { color: theme.text }]}>{livePrices[id] ?? p.price}</Text>
                 <Text style={{ color: theme.textMuted, fontSize: fontSizes.label, textAlign: "center" }}>
-                  {p.billingNote}
+                  {currentPlan === id ? "Your current plan" : p.billingNote}
                 </Text>
               </Pressable>
             );
@@ -157,14 +182,33 @@ export function UpgradeScreen() {
           Cancel anytime. Final price and currency are set by the app store at checkout.
         </Text>
 
-        {isPro ? (
-          <Text style={[styles.alreadyPro, { color: theme.success }]}>You're already on Pro. Thank you!</Text>
-        ) : (
+        {/* Three states, not two. Someone paying monthly who wants yearly used
+            to see only "You're already on Pro" with no way to move - the switch
+            existed in the billing code but nowhere on screen. */}
+        {!isPro ? (
           <PrimaryButton
             label={`Start Pro - ${livePrices[plan] ?? plans[plan].price}${plan === "monthly" ? "/mo" : "/yr"}`}
             onPress={handleSubscribe}
             loading={busy}
           />
+        ) : canSwitchPlan ? (
+          <>
+            <Text style={[styles.alreadyPro, { color: theme.success }]}>You're on Pro. Thank you!</Text>
+            <PrimaryButton
+              label={`Switch to ${plans[plan].label} - ${livePrices[plan] ?? plans[plan].price}`}
+              onPress={handleSubscribe}
+              loading={busy}
+            />
+            <Text style={[styles.switchNote, { color: theme.textMuted }]}>
+              {plan === "yearly"
+                ? "Takes effect straight away - Google charges only the difference for the rest of this period."
+                : "Takes effect when your current period ends. You keep everything you've paid for until then."}
+            </Text>
+          </>
+        ) : (
+          <Text style={[styles.alreadyPro, { color: theme.success }]}>
+            {onSelectedPlan ? "This is your current plan. Thank you!" : "You're already on Pro. Thank you!"}
+          </Text>
         )}
 
         <Pressable onPress={handleRestore} style={{ marginTop: spacing.md, alignItems: "center" }} disabled={busy}>
@@ -255,6 +299,7 @@ const styles = StyleSheet.create({
   saveBadgeText: { fontSize: 11, fontWeight: "700" },
   price: { fontSize: fontSizes.title, fontFamily: fonts.bodyBold, marginVertical: spacing.xs },
   alreadyPro: { textAlign: "center", fontWeight: "600", marginBottom: spacing.md },
+  switchNote: { textAlign: "center", fontSize: fontSizes.label, lineHeight: 19, marginTop: spacing.sm },
   welcomeBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",

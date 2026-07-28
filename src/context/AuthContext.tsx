@@ -4,6 +4,7 @@ import type { Session } from "@supabase/supabase-js";
 import * as WebBrowser from "expo-web-browser";
 import { supabase, getPersistedSession, clearPersistedSession } from "@/lib/supabase";
 import { reportAuthHang, logPersistedSessionReadDuration } from "@/lib/sentry";
+import { PasswordResetError } from "@/lib/authErrors";
 
 // Lets the in-app browser tab close itself and hand control back once the
 // Google OAuth redirect lands - required boilerplate per Expo's AuthSession
@@ -372,16 +373,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // so the subsequent updateUser() is an authenticated call that sets the new
     // password. Once verifyOtp succeeds the user is effectively signed in, and
     // onAuthStateChange routes them into the app.
+    //
+    // Both calls are tagged with the stage they failed at (see authErrors.ts).
+    // The distinction matters: once verifyOtp succeeds the person is signed in
+    // and RootNavigator moves them on, so a later updateUser failure must not
+    // be reported as "your reset failed" - it failed *after* they were let in,
+    // with their old password still working.
     signedOutRef.current = false;
     const { error: verifyError } = await supabase.auth.verifyOtp({
       email: email.trim(),
       token: token.trim(),
       type: "recovery",
     });
-    if (verifyError) throw verifyError;
+    if (verifyError) throw new PasswordResetError("verify", verifyError);
 
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-    if (updateError) throw updateError;
+    if (updateError) throw new PasswordResetError("update", updateError);
   };
 
   return (
