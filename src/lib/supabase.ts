@@ -14,6 +14,28 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// Two classes of request, two very different needs, so one number can't
+// serve both.
+//
+// Auth runs at cold start with the user watching a splash screen, and the
+// Sentry evidence says its failures are bimodal rather than a slow tail:
+// across builds 42 and earlier, `getSession still running after 6000ms`
+// fired 4 times and `never settled after 45000ms` fired 6. If the network
+// were merely slow there would be many of the former resolving before they
+// became the latter - requests taking 8-15s and then succeeding. There
+// aren't. Past ~6s these calls essentially never complete, so a shorter
+// bound gives up on the same set of requests and just does it sooner.
+//
+// Everything else (PostgREST reads, and especially the generate-message
+// edge function, which does real work per call) can legitimately take
+// double figures, and cutting it to match auth would break working
+// features to fix an unrelated one.
+//
+// 20000 was this file's original single value. It was chosen when the
+// alternative was no timeout at all, where the only goal was "not forever"
+// and the exact figure barely mattered. It's kept for non-auth requests on
+// that basis and has no stronger evidence behind it than that.
+const AUTH_FETCH_TIMEOUT_MS = 8000;
 const FETCH_TIMEOUT_MS = 20000;
 
 // supabase-js's fetch has no built-in timeout (see resolveFetch in
@@ -27,8 +49,15 @@ const FETCH_TIMEOUT_MS = 20000;
 // own retry/error handling take over, instead of hanging the client
 // permanently (see 2026-07-26 mid-session forced-logout incident).
 function timeoutFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  // GoTrue's endpoints all live under /auth/v1/ - matching on the URL is the
+  // only signal available here, since supabase-js gives every subsystem the
+  // same fetch and doesn't say which one is calling.
+  const url =
+    typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  const ms = url.includes("/auth/v1/") ? AUTH_FETCH_TIMEOUT_MS : FETCH_TIMEOUT_MS;
+
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), ms);
   return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
@@ -84,6 +113,25 @@ export async function getPersistedSession(): Promise<Session | null> {
     return isSessionShaped(parsed) ? parsed : null;
   } catch {
     return null;
+  }
+}
+
+// Deletes the persisted session directly, bypassing gotrue entirely.
+//
+// Needed because every auth call - including signOut({scope:'local'}) -
+// serialises behind auth-js's single lock, so when a request is stuck the
+// one operation you most need (clearing the session) is exactly the one that
+// can't run. AsyncStorage has no such lock. Without this, a sign-out tapped
+// during a hang could leave the session on disk, and the next cold start
+// would restore it and put the user back in an account they'd left.
+//
+// Never throws - this is a last-resort path and a failure here has no better
+// fallback to escalate to.
+export async function clearPersistedSession(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+  } catch {
+    // Intentionally swallowed - see above.
   }
 }
 

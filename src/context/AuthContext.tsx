@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { Platform } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import * as WebBrowser from "expo-web-browser";
-import { supabase, getPersistedSession } from "@/lib/supabase";
+import { supabase, getPersistedSession, clearPersistedSession } from "@/lib/supabase";
 import { reportAuthHang, logPersistedSessionReadDuration } from "@/lib/sentry";
 
 // Lets the in-app browser tab close itself and hand control back once the
@@ -67,6 +67,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsConsent, setNeedsConsent] = useState(false);
+
+  // True from the moment the user taps "Log out" until they sign in again.
+  //
+  // The bootstrap getSession() below is deliberately unbounded on the
+  // persisted path, and auth-js serialises every auth call behind a single
+  // lock - so a stuck getSession() is precisely when a sign-out is most
+  // likely to land mid-flight. Without this guard, that hung call resolving
+  // late would hand back the pre-sign-out session and silently sign the user
+  // back into an account they had explicitly left.
+  //
+  // Must be reset on every path that legitimately establishes a new session,
+  // or signing back in during the same app run would be ignored.
+  const signedOutRef = useRef(false);
 
   const refreshConsentStatus = useCallback(async () => {
     // Must never throw: this runs during app startup (see the bootstrap
@@ -172,6 +185,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (hardTimer) clearTimeout(hardTimer);
         if (!mounted) return;
 
+        // If the user signed out while this call was in flight, their tap is
+        // newer information than this result and must win - see signedOutRef.
+        if (signedOutRef.current) return;
+
         // gotrue-js only ever resolves session:null here for an outcome it
         // has actually decided - nothing was persisted, or a refresh that
         // genuinely, conclusively failed - never merely because this took
@@ -210,6 +227,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, s) => {
+      // Same reasoning as the bootstrap guard above: a TOKEN_REFRESHED or
+      // late INITIAL_SESSION carrying the old session must not undo an
+      // explicit sign-out. A null session is always safe to apply.
+      if (signedOutRef.current && s) return;
       setSession(s);
       if (s) await refreshConsentStatus();
     });
@@ -220,11 +241,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshConsentStatus]);
 
   const signUp = async (email: string, password: string) => {
+    // Clears the post-sign-out guard - see signedOutRef. Set before the call,
+    // not after, so the onAuthStateChange this triggers isn't suppressed.
+    signedOutRef.current = false;
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
   };
 
   const signIn = async (email: string, password: string) => {
+    signedOutRef.current = false;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };
@@ -236,6 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // expo-web-browser rather than the native Google Sign-In SDK, since it
   // needs no extra native config beyond the app's existing URL scheme.
   const signInWithGoogle = async () => {
+    signedOutRef.current = false;
     // Web has no app URL scheme to redirect back to - Google sends the
     // browser straight back to this same page instead, and
     // detectSessionInUrl (see supabase.ts) picks up the resulting session
@@ -292,27 +318,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    // Everything decisive happens BEFORE any network call.
+    //
+    // The user tapped "Log out" - that's an instruction, not a request, and
+    // it must not depend on a server that may be unreachable. The previous
+    // version put the local fallback behind `await signOut({scope:'local'})`
+    // and only then called setSession(null). But auth-js serialises every
+    // auth call behind one lock, so when a hung getSession() was holding it
+    // that awaited fallback hung too - and the line that actually signed the
+    // user out never ran. The safety net failed in exactly the situation it
+    // existed for (Sentry REACT-NATIVE-1/-2, build 42, 2026-07-28: three
+    // timeouts logged, user still signed in).
+    signedOutRef.current = true;
+    setSession(null);
+    setNeedsConsent(false);
+    // Not awaited, and deliberately not routed through auth-js: AsyncStorage
+    // has no lock to queue behind, so this is the one clear that can't be
+    // blocked. Without it a sign-out during a hang could leave the session on
+    // disk for the next cold start to restore.
+    void clearPersistedSession();
+
     try {
-      // Same no-built-in-timeout vulnerability as getSession() in the
-      // bootstrap above - signOut() also revokes the session server-side
-      // over a network call that can hang indefinitely (confirmed via
-      // Sentry: a `getSession never settled after 45000ms` event fired at
-      // the same moment a user's "Log out" tap did nothing on 0.1.0 (33)).
+      // Still worth attempting: this is what revokes the refresh token
+      // server-side, so the session can't be resumed elsewhere. Bounded,
+      // because it can hang indefinitely (supabase-js ships no fetch timeout
+      // of its own - see timeoutFetch in supabase.ts).
       const { error } = await withTimeout(supabase.auth.signOut(), 6000, "signOut");
       if (error) throw error;
     } catch (err) {
+      // Diagnostic only now. The user is already signed out locally, so this
+      // records that the server never confirmed it - the refresh token may
+      // still be live until it expires on its own.
       reportAuthHang(err, "auth-signout", "local-fallback");
-      // Opposite of the bootstrap's inconclusive-hang handling above: an
-      // inconclusive hang there must NOT be treated as a decisive "you're
-      // logged out," because nothing decisive happened. Here something
-      // decisive did happen - the user explicitly tapped "Log out" - so an
-      // unresponsive server round trip must never leave them stuck signed
-      // in. Fall back to a local-only sign-out (clears the on-device
-      // session without waiting on the network) and set the session
-      // directly as a safety net, in case the local-scope call doesn't
-      // reliably fire onAuthStateChange.
-      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
-      setSession(null);
+      // Fire-and-forget, for the same reason as clearPersistedSession above:
+      // awaiting this is precisely what broke sign-out before.
+      void supabase.auth.signOut({ scope: "local" }).catch(() => {});
     }
   };
 
@@ -332,6 +372,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // so the subsequent updateUser() is an authenticated call that sets the new
     // password. Once verifyOtp succeeds the user is effectively signed in, and
     // onAuthStateChange routes them into the app.
+    signedOutRef.current = false;
     const { error: verifyError } = await supabase.auth.verifyOtp({
       email: email.trim(),
       token: token.trim(),
