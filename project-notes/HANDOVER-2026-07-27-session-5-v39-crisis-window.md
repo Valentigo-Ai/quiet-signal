@@ -35,7 +35,7 @@ QA'd on device and confirmed: card auto-shows, "OK" dismisses it, and it stays g
 
 ## Release: v39
 
-Version code 39, versionName 0.1.0. Released to internal testing 27 Jul 13:08. Release notes were added *after* publishing (the release-notes field is on the Prepare release page, easy to skip past — fill it in before hitting rollout next time).
+Version code 39, versionName 0.1.0. Released to internal testing 27 Jul 13:08. Release notes were added *after* publishing — which turned out to be the only order that works; see checklist step 8.
 
 Contains `dadc6de0` on top of session 4's `df5fab73` and `6de919aa`.
 
@@ -48,9 +48,9 @@ Contains `dadc6de0` on top of session 4's `df5fab73` and `6de919aa`.
 
 ## Release: v40
 
-Version code 40, versionName 0.1.0. Released to internal testing 27 Jul 14:06. Contains `57ea75bb` (below) on top of v39. Release notes again added *after* publishing — see the process note under Pre-build checklist step 7; this now looks like the more reliable order rather than a slip.
+Version code 40, versionName 0.1.0. Released to internal testing 27 Jul 14:06. Contains `57ea75bb` (below) on top of v39. Release notes again added *after* publishing — see checklist step 8.
 
-The only change in it is the scale-label measurement fix. **Not yet confirmed on device** — the check is "Overwhelmed" sitting on one line in the Anxiety scale.
+The only change in it is the scale-label measurement fix. **Confirmed on device: it worked** — "Overwhelmed" sat on one line for the first time. It was then superseded by v41, which kept the measurement mechanism but moved the size from per-pill to per-row and shortened the labels; see below for why.
 
 A "1 Warning" appeared on the review step before publishing and was not read. It does not surface on the published release page. Most likely the routine missing-deobfuscation-file notice, but that is an assumption; expand it on the next release's review step to confirm.
 
@@ -58,7 +58,11 @@ A "1 Warning" appeared on the review step before publishing and was not read. It
 
 * **`57ea75bb` — scale labels measure themselves instead of guessing a font size.** "Overwhelmed" *still* broke mid-word in v39, after v38 and v39 each shipped a threshold estimated from a screenshot. Character count is a poor proxy for rendered width — "Overwhelmed" carries both a `w` and an `m` and is far wider than "Overloaded" despite being one character longer. New `PillLabel` component renders single-word labels with `numberOfLines={1}`, reads the laid-out line back via `onTextLayout`, and steps the font down 0.5pt at a time until the word is no longer truncated, floor 7px. `pillFontSize` survives as the *starting* estimate so the first paint is close and nothing visibly settles. Multi-word labels ("A little on alert") are untouched — they wrap at spaces, which reads fine. This also adapts to a large system font scale, which no fixed size could.
 
-  As of v39 on device, `Grounded`, `Triggered` and `Overloaded` all fit on one line; only `Overwhelmed` did not. Shipped in v40, **not yet verified on device**. Richard's alternative suggestion, if the auto-shrink doesn't satisfy: hardcode `Over\nwhelmed`. Note that's what the code did until v38 — the same map also produced `Ground\ned` and `Trigger\ned` with the orphaned "ed" that prompted the original complaint, but for "Overwhelmed" alone it did look acceptable.
+  As of v39 on device, `Grounded`, `Triggered` and `Overloaded` all fit on one line; only `Overwhelmed` did not. v40 fixed that. The measurement approach is still in the code today — v41 only changed *who owns the size* (the row rather than each pill) and shortened the labels so the rows could stay at full size.
+
+  Richard also suggested hardcoding `Over\nwhelmed` as a fallback. Not needed in the end, but worth recording that it's what the code did until v38 — the same map produced `Ground\ned` and `Trigger\ned` with the orphaned "ed" that prompted the original complaint, though for "Overwhelmed" alone it did look acceptable.
+
+  **The wider lesson, which cost three builds:** v38, v39 and v40's first attempt each picked a font size by estimating from a screenshot, and each was wrong. It only worked once the code asked the device what it had actually laid out. Same shape as several other bugs this session — the answer was in the logs, the deployed policy or the bundle, not in reasoning about what should be happening.
 
 ## Releases: v41 and v42
 
