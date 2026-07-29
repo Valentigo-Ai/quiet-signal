@@ -227,13 +227,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, s) => {
+    // This callback MUST stay synchronous, and MUST NOT call any
+    // supabase.auth.* method (or any PostgREST query) directly.
+    //
+    // auth-js awaits every subscriber callback from *inside* its own
+    // initialisation, on the native cold-start path:
+    //
+    //   initialize()                      <- sets this.initializePromise
+    //     _initialize()                   GoTrueClient.js:391
+    //       _recoverAndRefresh()
+    //         _callRefreshToken()
+    //           await _notifyAllSubscribers('TOKEN_REFRESHED', session)  :4146
+    //             await x.callback(event, session)                       :4208
+    //
+    // and getUser(), getSession(), signOut() and every PostgREST query
+    // (via supabase-js's _getAccessToken -> getSession) all begin with
+    // `await this.initializePromise` (:2595, :2334, :3320). So awaiting any
+    // of them here waits on the promise that this callback is itself
+    // blocking - a permanent deadlock. Nothing recovers it and no timeout
+    // fires, because nothing is pending on a timer: they are promises that
+    // will never settle. AUTH_FETCH_TIMEOUT_MS can't help either; the
+    // deadlock is upstream of fetch.
+    //
+    // Observed 2026-07-28 21:07 on v43 (Sentry REACT-NATIVE-1/-2/-3): every
+    // screen sat on a spinner, sign-out hung, getSession never settled at
+    // 45s. Intermittent only because it needs this subscriber to be
+    // registered by the time _recoverAndRefresh notifies - which happens
+    // when the persisted access token has expired and the refresh network
+    // call holds _initialize() open long enough for React to mount. A fresh
+    // token notifies before mount and looks fine. That is the same failure
+    // as the 2026-07-24 "expired overnight, cold start hung forever" note.
+    //
+    // setTimeout(0) is auth-js's own remedy for this: see the
+    // _getSessionFromURL branch of _initialize() (:380), which defers its
+    // notify exactly this way. ProContext's listener is already safe - it is
+    // synchronous and fire-and-forgets. Keep both that way.
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => {
       // Same reasoning as the bootstrap guard above: a TOKEN_REFRESHED or
       // late INITIAL_SESSION carrying the old session must not undo an
       // explicit sign-out. A null session is always safe to apply.
       if (signedOutRef.current && s) return;
       setSession(s);
-      if (s) await refreshConsentStatus();
+      if (s) {
+        setTimeout(() => {
+          // Re-check signedOutRef: this now runs a tick later, so a sign-out
+          // can have landed in between, and refreshConsentStatus() would
+          // otherwise re-gate a user who has already left.
+          if (mounted && !signedOutRef.current) void refreshConsentStatus();
+        }, 0);
+      }
     });
     return () => {
       mounted = false;
