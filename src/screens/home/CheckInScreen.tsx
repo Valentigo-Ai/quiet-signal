@@ -28,6 +28,55 @@ function getGreeting(): { greeting: string; question: string } {
   return { greeting: "Good evening", question: "How are you doing tonight?" };
 }
 
+// The row shape we need to describe an existing entry back to the person
+// before replacing it. Deliberately not the full Checkin type - this is only
+// ever used for the "you already logged today" confirmation.
+type ExistingCheckin = {
+  pain_score: number;
+  anxiety_score: number;
+  ptsd_score: number | null;
+  energy_score: number;
+  note: string | null;
+  created_at: string;
+};
+
+// Describes an already-saved check-in in the same words the person tapped -
+// never numbers (see scaleLabels.ts, which exists precisely so a score reads
+// identically everywhere). The note is acknowledged but NOT reproduced: it
+// can be long, and it can be the kind of thing someone wrote on their worst
+// day. Naming its existence is enough to make the choice an informed one.
+function describeExisting(row: ExistingCheckin, showAnxiety: boolean, showPtsd: boolean): string {
+  const parts = [`${PAIN_LABELS[row.pain_score]} pain`];
+  if (showAnxiety) parts.push(ANXIETY_LABELS[row.anxiety_score].toLowerCase());
+  if (showPtsd && row.ptsd_score !== null) parts.push(PTSD_LABELS[row.ptsd_score].toLowerCase());
+  parts.push(`${ENERGY_LABELS[row.energy_score].toLowerCase()} energy`);
+
+  let when = "";
+  const parsed = new Date(row.created_at);
+  if (!Number.isNaN(parsed.getTime())) {
+    when = ` at ${parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  return `You already checked in today${when}: ${parts.join(", ")}${row.note ? ", and a note" : ""}.`;
+}
+
+// Promise-wrapped Alert so handleLog can await the person's answer inline.
+// Cancel is the default (destructive action needs the deliberate tap), and
+// dismissing the dialog by tapping outside resolves false for the same reason.
+function confirmReplace(message: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      "Replace today's check-in?",
+      `${message}\n\nSaving now will keep only the new one.`,
+      [
+        { text: "Keep the earlier one", style: "cancel", onPress: () => resolve(false) },
+        { text: "Replace", style: "destructive", onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) }
+    );
+  });
+}
+
 // Core daily loop (Section 4.2 / Flow B). Target: under 15 seconds for a
 // returning user - three tap-scales, optional note, one button.
 export function CheckInScreen() {
@@ -113,6 +162,35 @@ export function CheckInScreen() {
       const userId = userData.user?.id;
       const today = new Date().toISOString().slice(0, 10);
 
+      // One check-in per calendar day is enforced by UNIQUE (user_id, date),
+      // so saving again REPLACES today's entry rather than adding to it. That
+      // is silently destructive now that the form clears after every save: a
+      // person who logged a hard morning, came back in the evening to a blank
+      // screen, and tapped through would lose the morning with no warning -
+      // and the people most likely to do that are the ones having the worst
+      // week. So the second save of a day is always an explicit choice.
+      //
+      // A read failure here is deliberately NOT fatal: it must never block
+      // someone from logging. It just means we fall through to the upsert
+      // without asking, which is the pre-existing behaviour.
+      const { data: existing, error: existingError } = await supabase
+        .from("checkins")
+        .select("pain_score, anxiety_score, ptsd_score, energy_score, note, created_at")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .maybeSingle();
+
+      if (existingError) reportDataError(existingError, "checkin-existing-lookup");
+
+      if (existing) {
+        const confirmed = await confirmReplace(
+          describeExisting(existing as ExistingCheckin, showAnxiety, showPtsd)
+        );
+        // Their new selections stay on screen untouched, so choosing "keep the
+        // earlier one" doesn't also cost them what they just tapped.
+        if (!confirmed) return;
+      }
+
       const { data: checkin, error } = await supabase
         .from("checkins")
         .upsert(
@@ -141,9 +219,25 @@ export function CheckInScreen() {
         return;
       }
 
+      // Clear the form on success. The state initialisers above only run when
+      // the screen MOUNTS, and this screen is a tab - it stays mounted for the
+      // life of the session. So without this, coming back from ShareFlow (or
+      // from any other tab) showed the selections still highlighted, which
+      // read as a form that had failed to clear rather than as a saved record.
+      // Resetting here means returning to Today always shows a clean screen,
+      // ready for the person to log again later if they want to.
+      setPain(null);
+      setAnxiety(null);
+      setPtsd(null);
+      setEnergy(null);
+      setNote("");
+
       // Section 4.2: immediate option to share this or keep it just for
       // today. The subtitle just above the button (below) tells the user
       // this is coming, so landing on the share screen isn't a surprise.
+      // Navigating away is also what confirms the save happened - the cleared
+      // form deliberately carries no "saved!" badge of its own, because the
+      // person is taken somewhere new the instant it works.
       navigation.navigate("ShareFlow", { checkinId: checkin.id });
     } catch (e: any) {
       // Guarded (2026-07-24 review): a network-level throw (getUser/upsert)

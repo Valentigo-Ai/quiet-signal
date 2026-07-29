@@ -1,9 +1,38 @@
 import { Platform } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import { PAIN_LABELS, ANXIETY_LABELS, PTSD_LABELS, ENERGY_LABELS } from "@/constants/scaleLabels";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// "2026-07-29" -> "29 Jul". The report previously printed raw ISO dates in
+// the chart and table while the prose summary above them said "29 July" -
+// two date formats on one page, and the machine-readable one given the most
+// space. Plain English everywhere, short form so the table column stays narrow.
+function formatShortDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return `${d} ${MONTHS[m - 1]}`;
+}
+
+// Whole days since the epoch. Used to place points along the x-axis by when
+// they actually happened rather than by their position in the array - see
+// buildChartSvg.
+function toDayNumber(iso: string): number {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return 0;
+  return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+}
 
 export type ReportRow = {
+  // Shown in the table. For daily rows this is an ISO date; for the 60/90-day
+  // weekly rollup it's a human range like "1 Jul – 7 Jul", which is why the
+  // chart must not try to parse it - see isoDate.
   date: string;
+  // Optional machine-readable anchor used ONLY for placing this row on the
+  // chart's time axis. Supplied by the weekly rollup, where `date` is a range
+  // label. Absent for daily rows, where `date` is already ISO.
+  isoDate?: string;
   pain_score: number;
   anxiety_score: number;
   // null for rows/periods with no PTSD data - most users, since it's only
@@ -32,15 +61,21 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
   // ReportRow) - rather than showing an all-blank column every time.
   const hasPtsd = rows.some((r) => r.ptsd_score !== null);
 
+  // Scores read as the words the person actually tapped, not "2 / 4".
+  // scaleLabels.ts exists precisely for this - its own header names the PDF
+  // export as a consumer - but this table was still printing raw numbers,
+  // so the prose summary said "Medium" directly above a grid saying "2 / 4".
+  // Numbers also quietly invite the reader to average or compare them, which
+  // is exactly the reading a self-reported 0-4 tap-scale doesn't support.
   const tableRows = rows
     .map(
       (r) => `
         <tr>
-          <td class="date">${r.date}</td>
-          <td class="score">${r.pain_score} / 4</td>
-          <td class="score">${r.anxiety_score} / 4</td>
-          ${hasPtsd ? `<td class="score">${r.ptsd_score !== null ? `${r.ptsd_score} / 4` : "–"}</td>` : ""}
-          <td class="score">${r.energy_score} / 4</td>
+          <td class="date">${escapeHtml(formatShortDate(r.date))}</td>
+          <td class="score">${escapeHtml(PAIN_LABELS[r.pain_score] ?? "–")}</td>
+          <td class="score">${escapeHtml(ANXIETY_LABELS[r.anxiety_score] ?? "–")}</td>
+          ${hasPtsd ? `<td class="score">${r.ptsd_score !== null ? escapeHtml(PTSD_LABELS[r.ptsd_score] ?? "–") : "–"}</td>` : ""}
+          <td class="score">${escapeHtml(ENERGY_LABELS[r.energy_score] ?? "–")}</td>
           <td class="note">${r.note ? escapeHtml(r.note) : ""}</td>
         </tr>`
     )
@@ -86,9 +121,12 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
           table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
           th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #CDD4EE; vertical-align: top; }
           th { color: #545D8A; font-weight: 600; }
-          /* Scores are short and must never break: "4 / 4" was wrapping to two
-             lines in the Pain column while Anxiety fitted on one. */
-          .score { white-space: nowrap; }
+          /* Scores are words now, not "4 / 4", and some are long ("A little on
+             edge" is 16 characters). They MUST be allowed to wrap at their
+             spaces - nowrap here would push the table past the page the same
+             way an unwrapped note used to. Hyphenless break-word rather than
+             anywhere, so a label breaks between words and never mid-word. */
+          .score { overflow-wrap: break-word; }
           .date { white-space: nowrap; }
           .note { word-wrap: break-word; overflow-wrap: anywhere; }
           .disclaimer { margin-top: 28px; font-size: 11px; color: #545D8A; line-height: 1.5; }
@@ -98,12 +136,25 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
              hang off the right edge. */
           .chart svg { width: 100%; height: auto; display: block; }
           .chart-title { color: #545D8A; font-size: 12px; margin-bottom: 6px; }
-          .legend { display: flex; gap: 18px; font-size: 12px; color: #1C2240; margin-top: 4px; }
-          .legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+          .legend { display: flex; gap: 18px; font-size: 12px; color: #1C2240; margin-top: 6px; flex-wrap: wrap; }
+          /* Legend swatches mirror the marker SHAPE used in the chart, not
+             just its colour. Four dash patterns proved indistinguishable at
+             print size, and worse where two metrics share a score - which on
+             real data happens constantly. Shape reads at a glance and survives
+             a greyscale printer. */
+          .legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+          .legend .dot-square { border-radius: 0; }
+          .legend .dot-diamond { border-radius: 0; transform: rotate(45deg); }
+          /* Drawn with borders because a CSS triangle needs no extra element. */
+          .legend .dot-triangle {
+            width: 0; height: 0; background: none !important; border-radius: 0;
+            border-left: 5px solid transparent; border-right: 5px solid transparent;
+            border-bottom: 9px solid currentColor;
+          }
           /* A dimension that has data but not enough of it to plot - muted so
              it reads as "not yet" rather than as a line you've failed to find. */
           .legend .pending { color: #545D8A; }
-          .legend-dates { display: flex; justify-content: space-between; font-size: 11px; color: #545D8A; margin-top: 4px; }
+          .chart-note { font-size: 10px; color: #545D8A; margin-top: 6px; }
         </style>
       </head>
       <body>
@@ -112,13 +163,18 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
         <div class="summary">${escapeHtml(summaryText)}</div>
         ${chartSvg}
         <table>
+          <!-- Rebalanced when scores became words. The two widest labels are
+               "A little on edge" (Anxiety) and "A little on alert" (PTSD), so
+               those columns get the most room of the four; Pain and Energy top
+               out at "Severe" and "Very low". The Note column gives up the
+               difference - it wraps freely and is the most forgiving. -->
           <colgroup>
-            <col style="width:${hasPtsd ? "15%" : "16%"}" />
             <col style="width:${hasPtsd ? "10%" : "11%"}" />
-            <col style="width:${hasPtsd ? "12%" : "13%"}" />
-            ${hasPtsd ? `<col style="width:10%" />` : ""}
-            <col style="width:${hasPtsd ? "12%" : "13%"}" />
-            <col style="width:${hasPtsd ? "41%" : "47%"}" />
+            <col style="width:${hasPtsd ? "12%" : "14%"}" />
+            <col style="width:${hasPtsd ? "17%" : "19%"}" />
+            ${hasPtsd ? `<col style="width:17%" />` : ""}
+            <col style="width:${hasPtsd ? "12%" : "14%"}" />
+            <col style="width:${hasPtsd ? "32%" : "42%"}" />
           </colgroup>
           <thead>
             <tr><th>${periodLabel}</th><th>Pain</th><th>Anxiety</th>${hasPtsd ? "<th>PTSD</th>" : ""}<th>Energy</th><th>Note</th></tr>
@@ -137,66 +193,171 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
 function escapeHtml(text: string) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-
-// Simple inline-SVG line chart for the PDF. Print-safe flat colors on a
-// white page; distinct dash patterns per line (not just color) so two
-// metrics with identical scores don't hide each other, and so it stays
-// readable if someone prints in greyscale.
+// Small-multiples chart for the PDF. Four metrics on a five-point scale, with
+// real day-to-day swing, cannot share one plot: at print size the lines cross
+// constantly and sit on top of each other wherever two scores match, which on
+// real data is most days. An earlier version of this used four dash patterns
+// and four marker shapes to try to separate them and it was still unreadable -
+// the problem isn't telling the lines apart, it's four lines in one space.
+//
+// So each metric gets its own strip, stacked, sharing one date axis. Every
+// strip holds a single line, which needs no legend and no dash pattern to be
+// legible, and comparing metrics becomes a vertical scan down the same date.
 function buildChartSvg(rows: ReportRow[]) {
   const w = 640;
-  const h = 160;
-  const pad = 8;
-  const n = rows.length;
-  // The table column appears with a single PTSD value (one score is still
-  // worth showing), but a line needs two points to exist: <polyline> with one
-  // coordinate draws nothing. Gating the legend on the same `some(...)` test
-  // as the table therefore printed "PTSD (dash-dot)" in the key next to an
-  // empty chart - which reads as a rendering failure rather than as "not
-  // enough data yet." Both the line and its legend entry now require >= 2.
-  const ptsdPointCount = rows.filter((r) => r.ptsd_score !== null).length;
-  const showPtsdLine = ptsdPointCount >= 2;
-  const toPoints = (key: "pain_score" | "anxiety_score" | "energy_score" | "ptsd_score") =>
-    rows
-      .map((r, i) => ({ score: r[key], i }))
-      // ptsd_score can be null for some/most rows - skip those points
-      // rather than plotting a false 0, leaving a gap the line skips over.
-      .filter((p): p is { score: number; i: number } => p.score !== null)
-      .map(({ score, i }) => {
-        const x = pad + (i / Math.max(n - 1, 1)) * (w - pad * 2);
-        const y = pad + (1 - score / 4) * (h - pad * 2);
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(" ");
+  const left = 74;          // gutter for the metric name
+  // Right gutter carries the WORDS for each strip's top and bottom, so nobody
+  // has to be told separately what "high" means. Without it a reader has to
+  // hold "higher = harder, including for energy" in their head across four
+  // strips; with it, the Pain strip simply says Severe at the top and None at
+  // the bottom, and there is nothing left to explain or misremember.
+  const right = 78;
+  const plotW = w - left - right;
+  const stripH = 46;        // plot height of one metric
+  const stripGap = 12;
+  const top = 8;
+  const axisH = 22;
 
+  // x is placed by WHEN a check-in happened, not by its index in the array.
+  // Spacing points evenly drew a five-day gap exactly as wide as a one-day
+  // gap - the line implied a continuous run of days that never happened, in a
+  // chart whose entire job is showing change over time.
+  // Weekly rollup rows carry isoDate; daily rows have an ISO `date` already.
+  const anchorOf = (r: ReportRow) => r.isoDate ?? r.date;
+  const dayNumbers = rows.map((r) => toDayNumber(anchorOf(r)));
+
+  // If ANY row's anchor won't parse, fall back to even index spacing rather
+  // than piling every point onto x=0. The weekly rollup supplies isoDate, but
+  // a future caller passing only a label shouldn't be able to silently
+  // produce a chart that's a single vertical line.
+  const datesUsable = dayNumbers.every((d) => Number.isFinite(d) && d > 0);
+  const firstDay = dayNumbers[0];
+  const lastDay = dayNumbers[dayNumbers.length - 1];
+  const span = Math.max(lastDay - firstDay, 1);
+  const xAt = (i: number) =>
+    datesUsable
+      ? left + ((dayNumbers[i] - firstDay) / span) * plotW
+      : left + (i / Math.max(rows.length - 1, 1)) * plotW;
+
+  // A run of consecutive-ish entries gets a connecting line; a longer gap
+  // breaks it. Drawing straight through a fortnight of silence invents data
+  // the person never gave us. Two days of tolerance so one missed day doesn't
+  // shatter the line into dots.
+  const MAX_GAP_DAYS = 2;
+
+  type Key = "pain_score" | "anxiety_score" | "ptsd_score" | "energy_score";
+  type Pt = { score: number; day: number; i: number };
+
+  const pointsFor = (key: Key): Pt[] =>
+    rows
+      .map((r, i) => ({ score: r[key], day: dayNumbers[i], i }))
+      // ptsd_score is null for most rows - plotting those as 0 would invent a
+      // "Steady" reading nobody gave.
+      .filter((p): p is Pt => p.score !== null);
+
+  const segmentsFor = (key: Key) => {
+    const runs: Pt[][] = [];
+    let run: Pt[] = [];
+    for (const p of pointsFor(key)) {
+      const prev = run[run.length - 1];
+      if (prev && datesUsable && p.day - prev.day > MAX_GAP_DAYS) {
+        runs.push(run);
+        run = [];
+      }
+      run.push(p);
+    }
+    if (run.length) runs.push(run);
+    return runs;
+  };
+
+  const ptsdPointCount = pointsFor("ptsd_score").length;
+
+  // Only strips with something to show. PTSD is omitted entirely rather than
+  // drawn empty for the many people who don't track it.
+  // high/low are the person's own words for each end of that scale, straight
+  // from scaleLabels - the same strings they tapped on the check-in screen.
+  const metrics: { key: Key; label: string; colour: string; high: string; low: string }[] = [
+    { key: "pain_score", label: "Pain", colour: "#B3413A", high: PAIN_LABELS[4], low: PAIN_LABELS[0] },
+    { key: "anxiety_score", label: "Anxiety", colour: "#3E4C8F", high: ANXIETY_LABELS[4], low: ANXIETY_LABELS[0] },
+    ...(ptsdPointCount > 0
+      ? [{ key: "ptsd_score" as Key, label: "PTSD", colour: "#7A4FBF", high: PTSD_LABELS[4], low: PTSD_LABELS[0] }]
+      : []),
+    { key: "energy_score", label: "Energy", colour: "#2F6B55", high: ENERGY_LABELS[4], low: ENERGY_LABELS[0] },
+  ];
+
+  const h = top + metrics.length * stripH + (metrics.length - 1) * stripGap + axisH;
+
+  const strips = metrics
+    .map((m, idx) => {
+      const sTop = top + idx * (stripH + stripGap);
+      const sBottom = sTop + stripH;
+      const y = (score: number) => sTop + (1 - score / 4) * stripH;
+
+      // A faint band behind each strip so the four read as separate panels
+      // rather than one tall grid, plus a midline for judging height.
+      const band = `<rect x="${left}" y="${sTop}" width="${plotW}" height="${stripH}" fill="#F7F8FD" />`;
+      const mid = `<line x1="${left}" y1="${y(2).toFixed(1)}" x2="${left + plotW}" y2="${y(2).toFixed(1)}" stroke="#E4E8F6" stroke-width="1" />`;
+
+      const lines = segmentsFor(m.key)
+        .filter((run) => run.length >= 2)
+        .map(
+          (run) =>
+            `<polyline points="${run.map((p) => `${xAt(p.i).toFixed(1)},${y(p.score).toFixed(1)}`).join(" ")}" fill="none" stroke="${m.colour}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" />`
+        )
+        .join("");
+
+      // Markers stay: they mark the actual check-ins, so a lone entry with no
+      // neighbour within two days still appears instead of vanishing.
+      const dots = pointsFor(m.key)
+        .map((p) => `<circle cx="${xAt(p.i).toFixed(1)}" cy="${y(p.score).toFixed(1)}" r="2.4" fill="${m.colour}" />`)
+        .join("");
+
+      const name = `<text x="${left - 10}" y="${(sTop + stripH / 2 + 4).toFixed(1)}" text-anchor="end" font-size="12" fill="#1C2240">${escapeHtml(m.label)}</text>`;
+
+      // The two ends of this strip, in the person's own words. Placed just
+      // inside the top and bottom edges so each aligns with the level it
+      // describes rather than floating between strips.
+      const ends =
+        `<text x="${left + plotW + 8}" y="${(sTop + 8).toFixed(1)}" font-size="9" fill="#8A92B8">${escapeHtml(m.high)}</text>` +
+        `<text x="${left + plotW + 8}" y="${(sBottom - 1).toFixed(1)}" font-size="9" fill="#8A92B8">${escapeHtml(m.low)}</text>`;
+
+      return band + mid + lines + dots + name + ends;
+    })
+    .join("");
+
+  // Shared date axis, drawn once beneath the stack. The old chart carried
+  // exactly two labels - first and last - so no point between them could be
+  // located in time at all.
+  const axisY = top + metrics.length * stripH + (metrics.length - 1) * stripGap;
+  const ticks: string[] = [`<line x1="${left}" y1="${axisY}" x2="${left + plotW}" y2="${axisY}" stroke="#CDD4EE" stroke-width="1" />`];
+  if (datesUsable) {
+    for (let day = firstDay; day <= lastDay; day += 7) {
+      const iso = new Date(day * 86400000).toISOString().slice(0, 10);
+      const x = left + ((day - firstDay) / span) * plotW;
+      ticks.push(
+        `<line x1="${x.toFixed(1)}" y1="${axisY}" x2="${x.toFixed(1)}" y2="${axisY + 4}" stroke="#CDD4EE" stroke-width="1" />` +
+          `<text x="${x.toFixed(1)}" y="${axisY + 16}" text-anchor="middle" font-size="10" fill="#545D8A">${escapeHtml(formatShortDate(iso))}</text>`
+      );
+    }
+    ticks.push(
+      `<text x="${left + plotW}" y="${axisY + 16}" text-anchor="end" font-size="10" fill="#545D8A">${escapeHtml(formatShortDate(anchorOf(rows[rows.length - 1])))}</text>`
+    );
+  } else {
+    ticks.push(
+      `<text x="${left}" y="${axisY + 16}" text-anchor="start" font-size="10" fill="#545D8A">${escapeHtml(rows[0].date)}</text>` +
+        `<text x="${left + plotW}" y="${axisY + 16}" text-anchor="end" font-size="10" fill="#545D8A">${escapeHtml(rows[rows.length - 1].date)}</text>`
+    );
+  }
+
+  const n = rows.length;
   return `
     <div class="chart">
-      <div class="chart-title">Trend over this period (top = higher score, 0-4 scale)</div>
-      <svg width="${w}" height="${h + 14}" viewBox="0 0 ${w} ${h + 14}" xmlns="http://www.w3.org/2000/svg">
-        <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="#CDD4EE" stroke-width="1" />
-        <polyline points="${toPoints("pain_score")}" fill="none" stroke="#B3413A" stroke-width="2" />
-        <polyline points="${toPoints("anxiety_score")}" fill="none" stroke="#3E4C8F" stroke-width="2" stroke-dasharray="6,4" />
-        ${showPtsdLine ? `<polyline points="${toPoints("ptsd_score")}" fill="none" stroke="#7A4FBF" stroke-width="2" stroke-dasharray="8,3,2,3" />` : ""}
-        <polyline points="${toPoints("energy_score")}" fill="none" stroke="#2F6B55" stroke-width="2" stroke-dasharray="1,4" stroke-linecap="round" />
+      <div class="chart-title">Each of your check-ins over time. The words on the right show what the top and bottom of each strip mean.</div>
+      <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+        ${strips}
+        ${ticks.join("")}
       </svg>
-      <div class="legend">
-        <span><span class="dot" style="background:#B3413A"></span>Pain (solid)</span>
-        <span><span class="dot" style="background:#3E4C8F"></span>Anxiety (dashed)</span>
-        ${
-          showPtsdLine
-            ? `<span><span class="dot" style="background:#7A4FBF"></span>PTSD (dash-dot)</span>`
-            : ptsdPointCount === 1
-              ? // One score is enough for the table column but not for a line, which
-                // left the key with no mention of PTSD at all while the table plainly
-                // showed a PTSD value - the dimension read as though it didn't exist.
-                // Naming it here, muted, with its colour and the reason, keeps the key
-                // accounting for every column in the table without advertising a line
-                // that isn't drawn.
-                `<span class="pending"><span class="dot" style="background:#7A4FBF;opacity:0.45"></span>PTSD (dash-dot) &ndash; needs 2+ entries</span>`
-              : ""
-        }
-        <span><span class="dot" style="background:#2F6B55"></span>Energy (dotted)</span>
-      </div>
-      <div class="legend-dates"><span>${escapeHtml(rows[0].date)}</span><span>${escapeHtml(rows[rows.length - 1].date)}</span></div>
+      <div class="chart-note">${n} check-in${n === 1 ? "" : "s"} shown. A gap means no check-in was logged; the line only joins entries within a couple of days of each other.${ptsdPointCount === 1 ? " PTSD shows a single point &ndash; a line needs at least two." : ""}</div>
     </div>`;
 }
 

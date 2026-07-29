@@ -44,6 +44,10 @@ type Checkin = {
   ptsd_score: number | null;
   energy_score: number;
   note: string | null;
+  // Set by the nightly crisis scan (nightly-journal-scan). Needed here only
+  // so the PDF export can warn before putting a flagged note in a document
+  // built to be handed to someone else.
+  flagged_crisis: boolean | null;
 };
 
 // 60/90-day views summarise week by week instead of listing every single
@@ -54,6 +58,8 @@ const WEEKLY_SUMMARY_MIN_RANGE = 60;
 
 type WeekBucket = {
   label: string;
+  // ISO date of the window's last day - see the comment where this is set.
+  isoDate: string;
   count: number;
   // 0-4, rounded to the nearest whole score - a week's average pain/anxiety/
   // energy isn't a score anyone actually tapped, so these get shown as the
@@ -117,6 +123,12 @@ function buildWeeklyBuckets(checkins: Checkin[]): WeekBucket[] {
 
     return {
       label: `${fmt(windowStart)} – ${fmt(windowEnd)}`,
+      // A machine-readable anchor for this window, alongside the human label.
+      // The PDF chart positions points by real elapsed time, and `label` is a
+      // range like "1 Jul – 7 Jul" which no date parser can read - without
+      // this, every weekly point would land at the same x and the 60/90-day
+      // chart would collapse to a vertical line.
+      isoDate: windowEnd.toISOString().slice(0, 10),
       count: group.length,
       pain: avg("pain_score"),
       anxiety: avg("anxiety_score"),
@@ -184,7 +196,7 @@ export function HistoryScreen() {
     }
     const { data, error } = await supabase
       .from("checkins")
-      .select("id, date, pain_score, anxiety_score, ptsd_score, energy_score, note")
+      .select("id, date, pain_score, anxiety_score, ptsd_score, energy_score, note, flagged_crisis")
       .eq("user_id", userId)
       .gte("date", since.toISOString().slice(0, 10))
       .order("date", { ascending: true });
@@ -335,6 +347,36 @@ export function HistoryScreen() {
       Alert.alert("Nothing to export yet", "Log a few check-ins first.");
       return;
     }
+    // A note flagged by the crisis scan is excluded from weekly insights by
+    // design - but the PDF was reproducing it verbatim, and the PDF is the one
+    // artefact built to be handed to another person. Someone exporting a
+    // month's report to send to a partner or a doctor can easily forget what
+    // they wrote on their worst day three weeks ago, and disclose far more
+    // than they meant to in that moment.
+    //
+    // The answer isn't to censor their own words - it's their record and their
+    // disclosure to make. It's to make it a choice they take knowingly. Only
+    // daily exports are affected; the 60/90-day weekly rollup carries no notes.
+    const flaggedCount = checkins.filter((c) => c.flagged_crisis && c.note).length;
+    let includeFlaggedNotes = true;
+    if (flaggedCount > 0 && !weeklyBuckets) {
+      includeFlaggedNotes = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+          flaggedCount === 1 ? "One note needs a moment's thought" : `${flaggedCount} notes need a moment's thought`,
+          `${
+            flaggedCount === 1
+              ? "One of the notes in this report was flagged as mentioning something difficult."
+              : `${flaggedCount} of the notes in this report were flagged as mentioning something difficult.`
+          } This report is easy to share, so it's worth deciding on purpose.\n\nThe scores and dates are included either way.`,
+          [
+            { text: "Leave the note out", onPress: () => resolve(false) },
+            { text: "Include it", onPress: () => resolve(true) },
+          ],
+          { cancelable: false }
+        );
+      });
+    }
+
     setDownloading(true);
     try {
       // 60/90-day reports get one row per week instead of one per day (same
@@ -345,13 +387,23 @@ export function HistoryScreen() {
       const reportRows: ReportRow[] = weeklyBuckets
         ? weeklyBuckets.map((w) => ({
             date: w.label,
+            // The chart needs a parseable date; the table keeps the readable
+            // range label. Without this the weekly chart has no time axis.
+            isoDate: w.isoDate,
             pain_score: w.pain,
             anxiety_score: w.anxiety,
             ptsd_score: w.ptsd,
             energy_score: w.energy,
             note: null,
           }))
-        : checkins;
+        : checkins.map((c) =>
+            // Scores and date always survive; only the note text is withheld,
+            // and its absence is stated rather than left as a blank cell that
+            // would read as "nothing was written that day".
+            !includeFlaggedNotes && c.flagged_crisis && c.note
+              ? { ...c, note: "(note not included)" }
+              : c
+          );
 
       await downloadCheckinPdfReport({
         rangeLabel: `Last ${range} days`,
