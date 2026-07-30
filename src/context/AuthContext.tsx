@@ -367,6 +367,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     signedOutRef.current = false;
+    // Clears any onboardingActive latch left on by an earlier signup or
+    // first-time Google attempt that was abandoned before reaching
+    // AddFirstRecipientScreen (its only release point). Without this, a
+    // stale latch holds RootNavigator's showOnboarding gate open forever in
+    // this process, even once this call succeeds and returns a perfectly
+    // good session - login keeps 200'ing against Supabase while the app
+    // never navigates anywhere, which reads as "login is broken" even
+    // though the credentials were fine every time. A real login is never
+    // itself part of an onboarding-that-ends-at-AddFirstRecipient journey,
+    // so it's always safe to clear this here.
+    setOnboardingActive(false);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };
@@ -379,6 +390,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // needs no extra native config beyond the app's existing URL scheme.
   const signInWithGoogle = async () => {
     signedOutRef.current = false;
+    // See the matching comment in signIn above - same stale-latch hazard.
+    // Safe to clear unconditionally here too: if this genuinely turns out
+    // to be a first-time Google sign-in needing the latch, the
+    // needsConsent-watching effect above re-latches it once needsConsent
+    // comes back true, same as it would from a cold start.
+    setOnboardingActive(false);
     // Web has no app URL scheme to redirect back to - Google sends the
     // browser straight back to this same page instead, and
     // detectSessionInUrl (see supabase.ts) picks up the resulting session
