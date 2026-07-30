@@ -17,7 +17,7 @@ export function SignUpScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { signUp } = useAuth();
+  const { signUp, refreshConsentStatus } = useAuth();
   const { getSource } = useBackgroundPrefs();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,6 +69,17 @@ export function SignUpScreen() {
             "Your account is ready, but we couldn't save your preferences just now. You can set them up any time from Settings."
           );
         }
+        // The SIGNED_IN event from signUp() above already triggered
+        // AuthContext's own refreshConsentStatus() in the background, but
+        // that read races this upsert and almost always loses (it fires on
+        // a setTimeout(0) while this write is still waiting on getUser() +
+        // the upsert round-trip), reading no profile row yet and setting
+        // needsConsent=true. RootNavigator then remounts the onboarding
+        // stack straight back to WhatAreYouDealingWith, discarding this
+        // screen and the navigate() below. Re-running it here - now that
+        // the row genuinely exists - is what ConsentScreen's Google-signin
+        // path already does after its own upsert, and closes the race.
+        await refreshConsentStatus();
       }
       navigation.navigate("AddFirstRecipient");
     } catch (e: any) {
