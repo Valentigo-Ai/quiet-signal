@@ -45,8 +45,14 @@ type ExistingCheckin = {
 // identically everywhere). The note is acknowledged but NOT reproduced: it
 // can be long, and it can be the kind of thing someone wrote on their worst
 // day. Naming its existence is enough to make the choice an informed one.
-function describeExisting(row: ExistingCheckin, showAnxiety: boolean, showPtsd: boolean): string {
-  const parts = [`${PAIN_LABELS[row.pain_score]} pain`];
+function describeExisting(
+  row: ExistingCheckin,
+  showPain: boolean,
+  showAnxiety: boolean,
+  showPtsd: boolean
+): string {
+  const parts: string[] = [];
+  if (showPain) parts.push(`${PAIN_LABELS[row.pain_score]} pain`);
   if (showAnxiety) parts.push(ANXIETY_LABELS[row.anxiety_score].toLowerCase());
   if (showPtsd && row.ptsd_score !== null) parts.push(PTSD_LABELS[row.ptsd_score].toLowerCase());
   parts.push(`${ENERGY_LABELS[row.energy_score].toLowerCase()} energy`);
@@ -129,10 +135,11 @@ export function CheckInScreen() {
   );
 
   // Default/fallback (skipped onboarding, or an existing user who onboarded
-  // before this feature existed): show Anxiety only, matching the app's
-  // check-in behavior before this split. Once a person HAS explicitly
-  // answered, that answer is authoritative even when it means showing
-  // neither block - "Chronic pain" alone, or nothing ticked at all.
+  // before this feature existed): show Pain and Anxiety, matching the app's
+  // check-in behavior before this split (both were unconditional back then).
+  // Once a person HAS explicitly answered, that answer is authoritative even
+  // when it means showing only one block, or none at all.
+  const showPain = answered ? concerns.includes("chronic_pain") : true;
   const showAnxiety = answered ? concerns.includes("anxiety") : true;
   const showPtsd = answered ? concerns.includes("ptsd") : false;
 
@@ -148,8 +155,8 @@ export function CheckInScreen() {
 
   const handleLog = async () => {
     const missingRequired =
-      pain === null ||
       energy === null ||
+      (showPain && pain === null) ||
       (showAnxiety && anxiety === null) ||
       (showPtsd && ptsd === null);
     if (missingRequired) {
@@ -184,7 +191,7 @@ export function CheckInScreen() {
 
       if (existing) {
         const confirmed = await confirmReplace(
-          describeExisting(existing as ExistingCheckin, showAnxiety, showPtsd)
+          describeExisting(existing as ExistingCheckin, showPain, showAnxiety, showPtsd)
         );
         // Their new selections stay on screen untouched, so choosing "keep the
         // earlier one" doesn't also cost them what they just tapped.
@@ -197,12 +204,12 @@ export function CheckInScreen() {
           {
             user_id: userId,
             date: today,
-            pain_score: pain,
-            // anxiety_score has no NULL column to fall back to (unlike the
-            // new ptsd_score) - when the block is hidden because the person
-            // told us it doesn't apply to them, 0 ("Calm"/none) is the
-            // correct value for a dimension they've said isn't relevant,
-            // not a placeholder guess.
+            // pain_score and anxiety_score have no NULL column to fall back
+            // to (unlike the nullable ptsd_score) - when a block is hidden
+            // because the person told us it doesn't apply to them, 0
+            // ("None"/"Calm") is the correct value for a dimension they've
+            // said isn't relevant, not a placeholder guess.
+            pain_score: showPain ? pain : 0,
             anxiety_score: showAnxiety ? anxiety : 0,
             ptsd_score: showPtsd ? ptsd : null,
             energy_score: energy,
@@ -270,7 +277,9 @@ export function CheckInScreen() {
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>{getGreeting().question}</Text>
         </TextOnPhoto>
 
-        <ScaleInput label="Pain" value={pain} onChange={setPain} scaleLabels={PAIN_LABELS} />
+        {showPain && (
+          <ScaleInput label="Pain" value={pain} onChange={setPain} scaleLabels={PAIN_LABELS} />
+        )}
         {showAnxiety && (
           <ScaleInput label="Anxiety" value={anxiety} onChange={setAnxiety} scaleLabels={ANXIETY_LABELS} />
         )}
