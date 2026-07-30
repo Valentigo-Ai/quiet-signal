@@ -3,6 +3,7 @@ import { View, Text, TextInput, StyleSheet, Pressable, Alert } from "react-nativ
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAppTheme } from "@/context/ThemeContext";
+import { useAuth } from "@/context/AuthContext";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { supabase } from "@/lib/supabase";
 import { reportDataError } from "@/lib/sentry";
@@ -14,12 +15,18 @@ import { spacing, fontSizes, fonts } from "@/lib/theme";
 export function AddFirstRecipientScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<any>();
+  const { markOnboardingComplete } = useAuth();
   const [label, setLabel] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
 
   const finish = () => {
-    // Session flips RootNavigator over to Main automatically once signed in.
+    // This is the actual last step of onboarding (both the email and
+    // Google-signin flows funnel here) - releasing the latch is what lets
+    // RootNavigator swap over to Main now that session and needsConsent are
+    // already satisfied. See AuthContext.onboardingActive for why that swap
+    // can't just happen automatically as soon as those two conditions are met.
+    markOnboardingComplete();
   };
 
   const handleAdd = async () => {

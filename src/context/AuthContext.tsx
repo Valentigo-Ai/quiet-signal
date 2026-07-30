@@ -34,6 +34,43 @@ type AuthContextValue = {
    * success the user ends up signed in with a fresh session. */
   confirmPasswordReset: (email: string, token: string, newPassword: string) => Promise<void>;
   refreshConsentStatus: () => Promise<void>;
+  /** Suppresses AuthContext's own automatic post-sign-in consent check (see
+   * onAuthStateChange below) while a caller is about to write the profile
+   * row itself and call refreshConsentStatus() afterward (e.g.
+   * SignUpScreen). Without this, the automatic check - scheduled the
+   * instant SIGNED_IN fires - reads the profiles table before that write
+   * has landed, sets needsConsent=true from an empty result, and bounces
+   * RootNavigator into onboarding for a frame before the caller's own,
+   * correct refresh corrects it back. Call with true before the write
+   * starts, false (in a finally) once the caller's own refreshConsentStatus()
+   * has resolved. */
+  setSuppressAutoConsentCheck: (active: boolean) => void;
+  /** True for the whole span of a fresh onboarding journey that ends at
+   * AddFirstRecipientScreen - from the moment it's entered (a first-time
+   * Google sign-in awaiting consent, or explicitly via beginOnboardingFlow()
+   * for email sign-up) until markOnboardingComplete() is called at the very
+   * end of it ("Add and finish"/"Skip for now"). Session and needsConsent
+   * individually become satisfied *mid-flow*, out of order and before the
+   * flow has screens left to show - session flips true the instant
+   * SignUpScreen's signUp() call resolves, then needsConsent flips false
+   * only later once its profile upsert + refreshConsentStatus land; for
+   * Google, ConsentScreen's own save flips needsConsent false right before
+   * it navigates to AddFirstRecipient. Without this latch, RootNavigator's
+   * showOnboarding gate would swap to Main the moment both conditions are
+   * met, tearing the onboarding stack down before those flows are actually
+   * done. Gating on this instead means the switch only happens once the
+   * flow itself says so. Never affects a normal returning sign-in, since
+   * nothing sets it there. */
+  onboardingActive: boolean;
+  /** Call once at the very start of the email sign-up flow (before
+   * signUp()) to latch onboardingActive on immediately. Needed only for
+   * that flow: setSuppressAutoConsentCheck deliberately keeps needsConsent
+   * false throughout it, so the needsConsent-based latch (used for Google)
+   * has nothing to react to here. */
+  beginOnboardingFlow: () => void;
+  /** Releases the latch above. Call once, from the very last screen of
+   * onboarding. */
+  markOnboardingComplete: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -81,6 +118,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Must be reset on every path that legitimately establishes a new session,
   // or signing back in during the same app run would be ignored.
   const signedOutRef = useRef(false);
+
+  // See setSuppressAutoConsentCheck in AuthContextValue above.
+  const suppressAutoConsentCheckRef = useRef(false);
+  const setSuppressAutoConsentCheck = useCallback((active: boolean) => {
+    suppressAutoConsentCheckRef.current = active;
+  }, []);
+
+  // See onboardingActive in AuthContextValue above.
+  const [onboardingActive, setOnboardingActive] = useState(false);
+  const beginOnboardingFlow = useCallback(() => {
+    setOnboardingActive(true);
+  }, []);
+  const markOnboardingComplete = useCallback(() => {
+    setOnboardingActive(false);
+  }, []);
+
+  // Latches the flag on for a first-time Google sign-in - the other path
+  // that lands on ConsentScreen/AddFirstRecipient needing it. Deliberately
+  // narrower than `!session || needsConsent`: needsConsent is only ever
+  // true for an authenticated user who hasn't completed consent yet, never
+  // for a plain not-signed-in state, so this can't misfire on someone
+  // sitting at Welcome/Login and then strand them there post-login with
+  // nothing left to release it (only AddFirstRecipientScreen calls
+  // markOnboardingComplete). The email sign-up path can't rely on this
+  // effect at all - setSuppressAutoConsentCheck deliberately keeps
+  // needsConsent false throughout that flow - so SignUpScreen calls
+  // beginOnboardingFlow() directly instead.
+  useEffect(() => {
+    if (needsConsent) setOnboardingActive(true);
+  }, [needsConsent]);
 
   const refreshConsentStatus = useCallback(async () => {
     // Must never throw: this runs during app startup (see the bootstrap
@@ -272,8 +339,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => {
           // Re-check signedOutRef: this now runs a tick later, so a sign-out
           // can have landed in between, and refreshConsentStatus() would
-          // otherwise re-gate a user who has already left.
-          if (mounted && !signedOutRef.current) void refreshConsentStatus();
+          // otherwise re-gate a user who has already left. Also skip while
+          // suppressAutoConsentCheckRef is set - a caller (SignUpScreen) is
+          // about to write the profile row itself and will call
+          // refreshConsentStatus() once that write lands; running this
+          // automatic check first would read the row before it exists and
+          // briefly bounce RootNavigator into onboarding for nothing.
+          if (mounted && !signedOutRef.current && !suppressAutoConsentCheckRef.current) {
+            void refreshConsentStatus();
+          }
         }, 0);
       }
     });
@@ -435,7 +509,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, loading, needsConsent, signUp, signIn, signInWithGoogle, signOut, requestPasswordReset, confirmPasswordReset, refreshConsentStatus }}
+      value={{ session, loading, needsConsent, signUp, signIn, signInWithGoogle, signOut, requestPasswordReset, confirmPasswordReset, refreshConsentStatus, setSuppressAutoConsentCheck, onboardingActive, beginOnboardingFlow, markOnboardingComplete }}
     >
       {children}
     </AuthContext.Provider>

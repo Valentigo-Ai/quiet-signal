@@ -17,7 +17,7 @@ export function SignUpScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { signUp, refreshConsentStatus } = useAuth();
+  const { signUp, refreshConsentStatus, setSuppressAutoConsentCheck, beginOnboardingFlow } = useAuth();
   const { getSource } = useBackgroundPrefs();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,6 +37,12 @@ export function SignUpScreen() {
       return;
     }
     setLoading(true);
+    // Both must be set before signUp() below, not after - it's signUp()
+    // itself that fires the SIGNED_IN event they're each guarding against.
+    // See the matching comments on AuthContextValue.setSuppressAutoConsentCheck
+    // and .beginOnboardingFlow.
+    setSuppressAutoConsentCheck(true);
+    beginOnboardingFlow();
     try {
       await signUp(email, password);
       // supabase.auth.signUp() may require email confirmation depending on
@@ -69,22 +75,23 @@ export function SignUpScreen() {
             "Your account is ready, but we couldn't save your preferences just now. You can set them up any time from Settings."
           );
         }
-        // The SIGNED_IN event from signUp() above already triggered
-        // AuthContext's own refreshConsentStatus() in the background, but
-        // that read races this upsert and almost always loses (it fires on
-        // a setTimeout(0) while this write is still waiting on getUser() +
-        // the upsert round-trip), reading no profile row yet and setting
-        // needsConsent=true. RootNavigator then remounts the onboarding
-        // stack straight back to WhatAreYouDealingWith, discarding this
-        // screen and the navigate() below. Re-running it here - now that
-        // the row genuinely exists - is what ConsentScreen's Google-signin
-        // path already does after its own upsert, and closes the race.
+        // The SIGNED_IN event from signUp() above would otherwise also
+        // trigger AuthContext's own automatic refreshConsentStatus() in the
+        // background, racing this upsert and almost always reading the
+        // profiles table before this write lands - setting needsConsent=true
+        // from an empty result and bouncing RootNavigator into onboarding
+        // for a frame. setSuppressAutoConsentCheck(true) above holds that
+        // automatic check off for the duration of this function, so this is
+        // the only place needsConsent gets set for this sign-up, and only
+        // once the row genuinely exists - same pattern ConsentScreen's
+        // Google-signin path already follows after its own upsert.
         await refreshConsentStatus();
       }
       navigation.navigate("AddFirstRecipient");
     } catch (e: any) {
       Alert.alert("Sign up failed", e.message ?? String(e));
     } finally {
+      setSuppressAutoConsentCheck(false);
       setLoading(false);
     }
   };

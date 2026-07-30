@@ -155,7 +155,7 @@ function MainNavigator() {
 }
 
 export function RootNavigator() {
-  const { session, loading, needsConsent } = useAuth();
+  const { session, loading, needsConsent, onboardingActive } = useAuth();
   const { theme } = useAppTheme();
 
   // React Navigation's DefaultTheme background is white - override it with
@@ -184,7 +184,14 @@ export function RootNavigator() {
   // consent / age-gate screens that the email sign-up flow enforces. Route
   // them straight into that flow, skipping Welcome/SignUp since they're
   // already authenticated, before letting them anywhere near the main app.
-  const showOnboarding = !session || needsConsent;
+  //
+  // onboardingActive keeps this true for the rest of an onboarding journey
+  // already in progress, even once session and needsConsent individually
+  // become satisfied part-way through it (see AuthContext.onboardingActive) -
+  // otherwise this would flip to Main mid-flow and tear the onboarding
+  // stack down before it's actually done, e.g. mid-signup or during the
+  // optional AddFirstRecipient step.
+  const showOnboarding = !session || needsConsent || onboardingActive;
 
   return (
     <NavigationContainer
