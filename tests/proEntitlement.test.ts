@@ -16,7 +16,7 @@ import {
 } from "../src/lib/proEntitlement.ts";
 
 const withActive = (ids: string[]) => ({
-  entitlements: { active: Object.fromEntries(ids.map((id) => [id, {}])) },
+  entitlements: { active: Object.fromEntries(ids.map((id) => [id, { isActive: true }])) },
 });
 
 test("hasProEntitlement: true only when the 'pro' entitlement is active", () => {
@@ -24,6 +24,11 @@ test("hasProEntitlement: true only when the 'pro' entitlement is active", () => 
   assert.equal(hasProEntitlement(withActive([])), false);
   assert.equal(hasProEntitlement(withActive(["some_other_entitlement"])), false);
   assert.equal(hasProEntitlement(withActive(["pro", "extra"])), true);
+});
+
+test("hasProEntitlement: false if present but isActive is not exactly true", () => {
+  assert.equal(hasProEntitlement({ entitlements: { active: { pro: { isActive: false } } } }), false);
+  assert.equal(hasProEntitlement({ entitlements: { active: { pro: {} } } }), false);
 });
 
 test("hasProEntitlement: entitlement id constant is 'pro'", () => {

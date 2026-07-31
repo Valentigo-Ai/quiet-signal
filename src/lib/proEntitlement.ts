@@ -9,17 +9,21 @@ export const PRO_ENTITLEMENT_ID = "pro";
 // Kept structural (not imported) so this module stays dependency-free and
 // testable; the real CustomerInfo satisfies it.
 export type EntitlementInfoLike = {
-  entitlements: { active: Record<string, unknown> };
+  entitlements: { active: Record<string, { isActive?: boolean } | undefined> };
 };
 
 // True iff the customer currently holds the "pro" entitlement. RevenueCat is
-// the source of truth: an entitlement is "active" only while the subscription
-// is valid, so this also goes false on expiry/cancellation without extra work.
+// the source of truth: by contract, `entitlements.active` only ever contains
+// entries RevenueCat currently considers active, so a presence check alone
+// already means the same thing as isActive===true. Checked explicitly anyway
+// (rather than relying on that contract implicitly) so this doesn't silently
+// start granting Pro if that ever stops being true - the field is right there
+// on the object either way, so asserting it costs nothing.
 export function hasProEntitlement(
   info: EntitlementInfoLike,
   entitlementId: string = PRO_ENTITLEMENT_ID,
 ): boolean {
-  return typeof info.entitlements.active[entitlementId] !== "undefined";
+  return info.entitlements.active[entitlementId]?.isActive === true;
 }
 
 // The single gate every feature check reads. A real entitlement always wins;

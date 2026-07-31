@@ -34,6 +34,16 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 // RevenueCat event types we care about. Everything else (TEST, SUBSCRIBER_ALIAS,
 // etc.) is acknowledged but not acted on.
+// RevenueCat has no distinct "REFUND" event type - a refund (whether issued
+// through RevenueCat, or a Google Play/App Store refund RevenueCat learned
+// about) is delivered as a CANCELLATION whose cancel_reason is
+// "CUSTOMER_SUPPORT". Every other cancel_reason (UNSUBSCRIBE, PRICE_INCREASE,
+// etc.) means the person turned off auto-renew and keeps access until the
+// period they already paid for actually ends - only CUSTOMER_SUPPORT means
+// they got their money back and should lose access immediately. See
+// computeIsPro below, which used to treat every CANCELLATION identically.
+const REFUND_CANCEL_REASON = "CUSTOMER_SUPPORT";
+
 type RcEvent = {
   id?: string;
   type?: string;
@@ -42,29 +52,34 @@ type RcEvent = {
   entitlement_id?: string | null;
   entitlement_ids?: string[] | null;
   expiration_at_ms?: number | null;
+  cancel_reason?: string | null;
   environment?: string | null;
   store?: string | null;
   event_timestamp_ms?: number | null;
 };
 
 // Given an event, decide whether the "pro" entitlement should be active now.
-function computeIsPro(type: string, expirationAtMs: number | null): boolean {
+function computeIsPro(type: string, expirationAtMs: number | null, cancelReason: string | null): boolean {
   const notExpired = expirationAtMs == null || expirationAtMs > Date.now();
   switch (type) {
     // Definitely no longer entitled.
     case "EXPIRATION":
     case "SUBSCRIPTION_PAUSED":
       return false;
-    // Entitled as long as the current period hasn't lapsed. CANCELLATION only
-    // means auto-renew was turned off - the user keeps Pro until expiry, when a
-    // separate EXPIRATION event arrives. BILLING_ISSUE is a grace period.
+    // A refund revokes access immediately, regardless of expires_at - the
+    // person got their money back for time they haven't used yet, unlike a
+    // plain CANCELLATION (auto-renew off), which keeps Pro until the period
+    // they already paid for actually ends.
+    case "CANCELLATION":
+      return cancelReason === REFUND_CANCEL_REASON ? false : notExpired;
+    // Entitled as long as the current period hasn't lapsed. BILLING_ISSUE is a
+    // grace period.
     case "INITIAL_PURCHASE":
     case "RENEWAL":
     case "UNCANCELLATION":
     case "PRODUCT_CHANGE":
     case "NON_RENEWING_PURCHASE":
     case "SUBSCRIPTION_EXTENDED":
-    case "CANCELLATION":
     case "BILLING_ISSUE":
     case "TRANSFER":
       return notExpired;
@@ -124,7 +139,7 @@ Deno.serve(async (req) => {
 
   const eventAtMs = event.event_timestamp_ms ?? Date.now();
   const eventAt = new Date(eventAtMs).toISOString();
-  const isPro = computeIsPro(type, event.expiration_at_ms ?? null);
+  const isPro = computeIsPro(type, event.expiration_at_ms ?? null, event.cancel_reason ?? null);
   const expiresAt = event.expiration_at_ms ? new Date(event.expiration_at_ms).toISOString() : null;
 
   const supabase = createClient(

@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import Purchases, {
   LOG_LEVEL,
   PACKAGE_TYPE,
@@ -17,7 +18,7 @@ import {
   PurchaseError,
   replacementModeFor,
 } from "@/lib/purchaseErrors";
-import { supabase } from "@/lib/supabase";
+import { supabase, verifyEntitlement } from "@/lib/supabase";
 import { reportDataError } from "@/lib/sentry";
 
 // ---------------------------------------------------------------------------
@@ -92,6 +93,11 @@ function pricesFromPackages(pkgs: PurchasesPackage[]): Partial<Record<ProPlanId,
 
 export function ProProvider({ children }: { children: React.ReactNode }) {
   const [entitled, setEntitled] = useState(false);
+  // The webhook-confirmed server truth for this user's "pro" row in
+  // public.user_entitlements - null until the first read completes (or there
+  // is no signed-in user to read it for). See effectiveEntitled below for how
+  // this and `entitled` combine.
+  const [serverIsPro, setServerIsPro] = useState<boolean | null>(null);
   const [devPro, setDevPro] = useState(false);
   const [ready, setReady] = useState(false);
   const [livePrices, setLivePrices] = useState<Partial<Record<ProPlanId, string>>>({});
@@ -99,6 +105,8 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
   const packagesRef = useRef<PurchasesPackage[]>([]);
   // The Supabase user id currently identified to RevenueCat (null = anonymous).
   const identifiedRef = useRef<string | null>(null);
+  // The live Realtime subscription on this user's user_entitlements row, if any.
+  const entitlementChannelRef = useRef<RealtimeChannel | null>(null);
 
   // Entitlement and current plan always come from the same CustomerInfo, so
   // they're set together. Letting them drift is how a paywall ends up offering
@@ -108,10 +116,76 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
     setCurrentPlan(planFromProductId(activeProProductId(info)));
   }, []);
 
+  // Overrides entitlement straight to false when verify-entitlement's
+  // server-side check disagrees with what RevenueCat's client SDK just
+  // reported (see purchasePro/restorePurchases below, and the doc comment on
+  // verify-entitlement itself for why the two can differ: a refund RevenueCat
+  // hasn't been notified about yet). Also clears currentPlan for the same
+  // reason applyCustomerInfo sets both together above - a refunded
+  // subscription showing as "your current plan" while not entitled is its
+  // own confusing, inconsistent state.
+  const revokeEntitlementLocally = useCallback(() => {
+    setEntitled(false);
+    setCurrentPlan(null);
+  }, []);
+
+  // Reads this user's current is_pro straight from the webhook-maintained
+  // mirror - the actual server-confirmed truth, independent of whatever
+  // RevenueCat's client SDK currently happens to report. No row (a user who's
+  // never triggered a RevenueCat event) means "not pro", same as the table's
+  // own default. A read failure leaves serverIsPro exactly as it was rather
+  // than assuming false - a transient fetch error must never look like a
+  // revoked subscription.
+  const fetchServerEntitlement = useCallback(async (userId: string) => {
+    const { data, error } = await supabase
+      .from("user_entitlements")
+      .select("is_pro")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) {
+      reportDataError(error, "pro-entitlement-fetch");
+      return;
+    }
+    setServerIsPro(data?.is_pro ?? false);
+  }, []);
+
+  const unsubscribeFromEntitlementChanges = useCallback(() => {
+    if (entitlementChannelRef.current) {
+      supabase.removeChannel(entitlementChannelRef.current);
+      entitlementChannelRef.current = null;
+    }
+  }, []);
+
+  // Live-updates serverIsPro the moment the webhook flips it (a
+  // CUSTOMER_SUPPORT-reason cancellation, an EXPIRATION, a renewal), without
+  // waiting for the next foreground or app restart. Relies on the existing
+  // "own entitlement is readable by owner" RLS policy on user_entitlements -
+  // Realtime enforces the same policy for postgres_changes, so this can only
+  // ever see this user's own row.
+  const subscribeToEntitlementChanges = useCallback(
+    (userId: string) => {
+      unsubscribeFromEntitlementChanges();
+      entitlementChannelRef.current = supabase
+        .channel(`user_entitlements_${userId}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "user_entitlements", filter: `user_id=eq.${userId}` },
+          (payload: RealtimePostgresChangesPayload<{ user_id: string; is_pro: boolean }>) => {
+            const row = payload.new as { is_pro?: boolean } | undefined;
+            if (row && typeof row.is_pro === "boolean") setServerIsPro(row.is_pro);
+          },
+        )
+        .subscribe();
+    },
+    [unsubscribeFromEntitlementChanges],
+  );
+
   useEffect(() => {
     let mounted = true;
     // Supabase auth subscription, torn down on unmount.
     let authSub: { unsubscribe: () => void } | undefined;
+    // AppState (foreground) subscription, also torn down on unmount.
+    let appStateSub: { remove: () => void } | undefined;
 
     (async () => {
       // Non-mobile (web): no native billing. Restore the dev flag in __DEV__
@@ -138,7 +212,11 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
           Purchases.configure({ apiKey });
 
           // Live entitlement updates (renewals, purchases on other devices,
-          // cancellations) flow in here without a manual refresh.
+          // cancellations) flow in here without a manual refresh. Secondary/
+          // optimistic only, per effectiveEntitled below - good for instant
+          // feedback, but this is exactly the signal that can go stale (a
+          // refund RevenueCat's own servers haven't learned about yet), so it
+          // never gets the final say once serverIsPro has an answer.
           Purchases.addCustomerInfoUpdateListener((updated) => {
             applyCustomerInfo(updated);
           });
@@ -156,12 +234,16 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
                 const { customerInfo } = await Purchases.logIn(userId);
                 identifiedRef.current = userId;
                 if (mounted) applyCustomerInfo(customerInfo);
+                if (mounted) await fetchServerEntitlement(userId);
+                if (mounted) subscribeToEntitlementChanges(userId);
               } else if (identifiedRef.current) {
                 // Only log out if a real user was previously identified;
                 // Purchases.logOut() throws when already anonymous.
                 const info = await Purchases.logOut();
                 identifiedRef.current = null;
                 if (mounted) applyCustomerInfo(info);
+                if (mounted) setServerIsPro(null); // no user - nothing to gate on server-side
+                unsubscribeFromEntitlementChanges();
               }
             } catch (e) {
               console.warn("[Pro] RevenueCat identity sync failed:", e);
@@ -185,6 +267,18 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
             void syncIdentity(s?.user?.id ?? null);
           }).data.subscription;
 
+          // Coming to foreground re-reads user_entitlements directly, on top
+          // of the Realtime subscription above - belt and braces for any gap
+          // while the app was backgrounded (a dropped socket, a change that
+          // happened while this device had no connection at all), same
+          // reasoning as reconnecting a stream rather than trusting it never
+          // missed anything.
+          appStateSub = AppState.addEventListener("change", (state) => {
+            if (state === "active" && identifiedRef.current) {
+              void fetchServerEntitlement(identifiedRef.current);
+            }
+          });
+
           // Preload the current offering for pricing + purchase.
           const offerings = await Purchases.getOfferings();
           const pkgs = offerings.current?.availablePackages ?? [];
@@ -207,6 +301,8 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
       authSub?.unsubscribe();
+      appStateSub?.remove();
+      unsubscribeFromEntitlementChanges();
     };
   }, []);
 
@@ -273,7 +369,30 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
           : null,
       );
       applyCustomerInfo(customerInfo);
-      return hasProEntitlement(customerInfo);
+      const clientSaysEntitled = hasProEntitlement(customerInfo);
+      if (!clientSaysEntitled) return false;
+
+      // A purchase that was JUST made being already-refunded is vanishingly
+      // unlikely, but this is the one gate every path to "pro" should share
+      // (see verify-entitlement's doc comment) - a fresh purchase is not a
+      // special case exempt from it.
+      const serverVerdict = await verifyEntitlement();
+      if (serverVerdict === false) {
+        revokeEntitlementLocally();
+        setServerIsPro(false);
+        return false;
+      }
+      const result = serverVerdict ?? clientSaysEntitled;
+      // Syncs serverIsPro to this same result, not just entitled - otherwise
+      // a serverIsPro left over from *before* this purchase (stale/false)
+      // would win over this fresh purchase in effectiveEntitled below, until
+      // the webhook's own row eventually catches up. This isn't claiming the
+      // database row itself says this yet (it may not have caught up), just
+      // that a stale earlier read must not get to outvote what was just
+      // confirmed here - the next real fetch/Realtime event overwrites it
+      // properly once the webhook does land.
+      setServerIsPro(result);
+      return result;
     } catch (e: any) {
       // User backed out of the Play purchase sheet - not an error to surface.
       if (isUserCancelled(e)) return false;
@@ -287,12 +406,46 @@ export function ProProvider({ children }: { children: React.ReactNode }) {
     }
     const info = await Purchases.restorePurchases();
     applyCustomerInfo(info);
-    return hasProEntitlement(info);
+    const clientSaysEntitled = hasProEntitlement(info);
+    if (!clientSaysEntitled) return false;
+
+    // This is exactly the case incident 2026-07-31 was about: RevenueCat's
+    // client SDK can report an entitlement as active from a Google Play
+    // subscription that was refunded directly via Play Console Order
+    // Management, if RevenueCat's own servers were never notified of the
+    // refund (Google Play Real-time Developer Notifications not wired up -
+    // see verify-entitlement's doc comment). Restoring is precisely the
+    // moment a stale/refunded record would otherwise get taken at face
+    // value, so it's checked server-side before being trusted.
+    const serverVerdict = await verifyEntitlement();
+    if (serverVerdict === false) {
+      revokeEntitlementLocally();
+      setServerIsPro(false);
+      return false;
+    }
+    // null = the check itself couldn't run (not configured yet, or a
+    // transient failure) - fall back to what RevenueCat's own SDK already
+    // said rather than denying a legitimate customer over our own infra.
+    const result = serverVerdict ?? clientSaysEntitled;
+    // See the matching comment in purchasePro above - keeps a stale prior
+    // serverIsPro from outvoting this restore in effectiveEntitled below.
+    setServerIsPro(result);
+    return result;
   };
+
+  // user_entitlements (kept current by the revenuecat-webhook edge function)
+  // is the actual gate once we've heard from it at least once - it's the
+  // server-confirmed truth, and can override a stale `entitled` the same way
+  // verify-entitlement already overrides one right after a purchase/restore.
+  // serverIsPro is null only before the very first read completes (or when
+  // there's no signed-in user to read it for), in which case falling back to
+  // `entitled` avoids an incorrect "not pro" flash while that fetch is still
+  // in flight - see fetchServerEntitlement/subscribeToEntitlementChanges.
+  const effectiveEntitled = serverIsPro ?? entitled;
 
   // A real "pro" entitlement always wins; the dev toggle only adds access in
   // development builds (it's not even rendered in production). See deriveIsPro.
-  const isPro = deriveIsPro(entitled, devPro, __DEV__);
+  const isPro = deriveIsPro(effectiveEntitled, devPro, __DEV__);
 
   return (
     <ProContext.Provider

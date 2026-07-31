@@ -190,3 +190,25 @@ export async function shareCheckin(params: {
   }
   return data as { shared_message_id: string; view_url: string; delivery: unknown };
 }
+
+/**
+ * Authoritative, server-side re-check of the caller's own "pro" entitlement
+ * - see verify-entitlement's own doc comment for why this exists (a Google
+ * Play refund issued outside RevenueCat can leave RevenueCat's own record,
+ * and therefore the client's CustomerInfo, showing an entitlement as active
+ * for a while). Called by ProContext right after a purchase or restore
+ * succeeds, never as the sole gate on its own - see the null-return case.
+ *
+ * Returns `null` (rather than throwing) when the check itself couldn't run -
+ * not configured yet, or a transient failure - so a legitimate customer is
+ * never denied Pro because of an outage in this specific safety net. Errors
+ * are still reported so the gap is visible.
+ */
+export async function verifyEntitlement(): Promise<boolean | null> {
+  const { data, error } = await supabase.functions.invoke("verify-entitlement", { body: {} });
+  if (error) {
+    reportDataError(error, "verify-entitlement");
+    return null;
+  }
+  return typeof data?.isPro === "boolean" ? data.isPro : null;
+}
