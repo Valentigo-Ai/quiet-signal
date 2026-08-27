@@ -245,6 +245,12 @@ export function HistoryScreen() {
     // actual amount of energy rather than the stored severity number.
     const energy = describeTrend(4 - first.energy_score, 4 - last.energy_score);
 
+    const ptsdCheckins = checkins.filter((c) => c.ptsd_score !== null);
+    const ptsd =
+      ptsdCheckins.length >= MIN_POINTS_FOR_TREND
+        ? describeTrend(ptsdCheckins[0].ptsd_score!, ptsdCheckins[ptsdCheckins.length - 1].ptsd_score!)
+        : null;
+
     // "stayed about the same" rather than "stayed steady". This sentence
     // describes CHANGE across the period; the sentence after it describes the
     // LEVEL on the final day. Both can be true at once - pain that is severe
@@ -264,6 +270,7 @@ export function HistoryScreen() {
 
     const painPhrase = `pain's ${paceWord(pain)}`;
     const anxietyPhrase = `anxiety's ${paceWord(anxiety)}`;
+    const ptsdPhrase = ptsd !== null ? `, PTSD's ${paceWord(ptsd)}` : "";
     let energyPhrase = `energy's ${energyWord(energy)}`;
     if (energy !== "steady" && energy === anxiety) {
       energyPhrase += " too";
@@ -271,7 +278,7 @@ export function HistoryScreen() {
 
     // Explicitly framed as a comparison over the period, so the reader is told
     // what these words are measuring rather than having to work it out.
-    return `Over that time, ${painPhrase}, ${anxietyPhrase} and ${energyPhrase}.`;
+    return `Over that time, ${painPhrase}, ${anxietyPhrase}${ptsdPhrase} and ${energyPhrase}.`;
   }, [checkins]);
 
   // null for 7/30-day views (daily list/table as before); an array of
