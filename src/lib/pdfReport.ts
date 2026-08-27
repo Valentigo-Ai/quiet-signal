@@ -127,7 +127,7 @@ function buildReportHtml(opts: { rangeLabel: string; summaryText: string; rows: 
              way an unwrapped note used to. Hyphenless break-word rather than
              anywhere, so a label breaks between words and never mid-word. */
           .score { overflow-wrap: break-word; }
-          .date { white-space: nowrap; }
+          .date { white-space: normal; overflow-wrap: break-word; }
           .note { word-wrap: break-word; overflow-wrap: anywhere; }
           .disclaimer { margin-top: 28px; font-size: 11px; color: #545D8A; line-height: 1.5; }
           .chart { margin: 0 0 24px; }
@@ -332,6 +332,7 @@ function buildChartSvg(rows: ReportRow[]) {
   const ticks: string[] = [`<line x1="${left}" y1="${axisY}" x2="${left + plotW}" y2="${axisY}" stroke="#CDD4EE" stroke-width="1" />`];
   if (datesUsable) {
     for (let day = firstDay; day <= lastDay; day += 7) {
+    if (lastDay - day < 4) continue; // avoid crowding the always-drawn end label
       const iso = new Date(day * 86400000).toISOString().slice(0, 10);
       const x = left + ((day - firstDay) / span) * plotW;
       ticks.push(
