@@ -241,9 +241,14 @@ function buildChartSvg(rows: ReportRow[]) {
 
   // A run of consecutive-ish entries gets a connecting line; a longer gap
   // breaks it. Drawing straight through a fortnight of silence invents data
-  // the person never gave us. Two days of tolerance so one missed day doesn't
-  // shatter the line into dots.
-  const MAX_GAP_DAYS = 2;
+  // the person never gave us. The tolerance has to match this call's actual
+  // cadence: weekly-rollup rows (60/90-day reports, see ReportRow.isoDate)
+  // are 7 days apart even when every single week has data, so a threshold
+  // tuned for daily rows broke every segment and drew nothing but dots. Each
+  // cadence gets just enough slack to survive one missed day/week without
+  // shattering the line, same reasoning either way.
+  const isWeeklyRollup = rows.some((r) => r.isoDate !== undefined);
+  const MAX_GAP_DAYS = isWeeklyRollup ? 10 : 2;
 
   type Key = "pain_score" | "anxiety_score" | "ptsd_score" | "energy_score";
   type Pt = { score: number; day: number; i: number };
@@ -331,8 +336,17 @@ function buildChartSvg(rows: ReportRow[]) {
   const axisY = top + metrics.length * stripH + (metrics.length - 1) * stripGap;
   const ticks: string[] = [`<line x1="${left}" y1="${axisY}" x2="${left + plotW}" y2="${axisY}" stroke="#CDD4EE" stroke-width="1" />`];
   if (datesUsable) {
+    // Skip a periodic tick that would sit too close to the always-drawn end
+    // label, measured in actual plotted pixels rather than days - the same
+    // 7-day tick step covers very different pixel distances depending on the
+    // report's total span (41px for a 90-day chart vs 118px for a 30-day
+    // one), so a fixed day count only happened to work for the spans it was
+    // tested against. 48px is roughly half the end label's width plus half
+    // this tick's, the minimum gap before the two touch.
+    const minTickGapPx = 48;
     for (let day = firstDay; day <= lastDay; day += 7) {
-    if (lastDay - day < 4) continue; // avoid crowding the always-drawn end label
+      const distFromEndPx = ((lastDay - day) / span) * plotW;
+      if (distFromEndPx < minTickGapPx) continue;
       const iso = new Date(day * 86400000).toISOString().slice(0, 10);
       const x = left + ((day - firstDay) / span) * plotW;
       ticks.push(
