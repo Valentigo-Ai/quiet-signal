@@ -49,7 +49,7 @@
         {
           "organization": "valentigo",
           "project": "react-native",
-          "url": "https://sentry.io/",
+          "url": "https://de.sentry.io/",
           "experimental_android": {
             "enableAndroidGradlePlugin": true,
             "includeProguardMapping": true,
