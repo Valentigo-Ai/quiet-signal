@@ -3,7 +3,6 @@ import React, { useEffect } from "react";
 import { Platform } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { StatusBar } from "expo-status-bar";
-import * as NavigationBar from "expo-navigation-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -53,24 +52,11 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Android-only: with edge-to-edge now mandatory on Android (Expo SDK 54 /
-  // Android 15+), the system navigation bar is transparent by default, and
-  // its button icons need an explicit style or they render dark-on-dark (or
-  // default light chrome) instead of matching the midnight theme - this,
-  // plus the same gap for the status bar, was the likely source of the
-  // white bars framing every screen on the native app. app.json's
-  // expo-navigation-bar plugin sets this at build time; this call covers
-  // it at runtime too, in case a bare/dev-client build predates the plugin.
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    // setStyle is synchronous (no "Async" suffix, returns void, not a
-    // Promise) - the wrong name (setStyleAsync) crashed at runtime.
-    try {
-      NavigationBar.setStyle("light");
-    } catch {
-      // no-op - shouldn't happen, but this must never crash app startup
-    }
-  }, []);
+  // Android nav bar icon style (the white-bars fix) now lives only in
+  // app.json's expo-navigation-bar plugin (barStyle "light"), applied at
+  // build time. The old runtime NavigationBar.setStyle() fallback was removed
+  // (2026-09-24) - Play Console flags it as a deprecated edge-to-edge API. If
+  // nav bar icons ever lose contrast, fix it in the plugin config, not here.
 
   // Web-only layout fix: outside of Expo Router (which ships its own HTML
   // template with this built in), the browser's html/body/#root elements
@@ -113,11 +99,11 @@ function App() {
             <BackgroundPrefsProvider>
               <CrisisCountryProvider>
                 <AuthProvider>
-                  {/* translucent + transparent background so the full-screen photo behind
-                      each screen renders all the way to the top edge on Android instead
-                      of sitting under an opaque status bar strip (iOS is already
-                      translucent-over-content by default). */}
-                  <StatusBar style="auto" translucent backgroundColor="transparent" />
+                  {/* No translucent/backgroundColor props: with mandatory edge-to-edge
+                      (SDK 54 / Android 15+) the status bar is always transparent, so the
+                      full-screen photo already reaches the top edge, and those props are
+                      deprecated no-ops that Play Console flags. */}
+                  <StatusBar style="auto" />
                   <RootNavigator />
                 </AuthProvider>
               </CrisisCountryProvider>
