@@ -75,7 +75,7 @@ export function DataExportScreen() {
         shared_messages: shared,
       };
       const json = JSON.stringify(bundle, null, 2);
-      const filename = `quiet-signal-export-${new Date().toISOString().slice(0, 10)}.json`;
+      const baseName = `quiet-signal-export-${new Date().toISOString().slice(0, 10)}`;
 
       if (Platform.OS === "web") {
         // No native filesystem on web - a Blob + a throwaway <a download>
@@ -85,7 +85,7 @@ export function DataExportScreen() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = filename;
+        link.download = `${baseName}.json`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -93,16 +93,18 @@ export function DataExportScreen() {
         return;
       }
 
-      const file = new File(Paths.document, filename);
+      // .txt + text/plain on phones: most have no app registered for .json,
+      // so a JSON attachment won't open. Content is the same JSON either way.
+      const file = new File(Paths.document, `${baseName}.txt`);
       file.create({ overwrite: true });
       file.write(json);
 
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(file.uri, {
-          mimeType: "application/json",
+          mimeType: "text/plain",
           dialogTitle: "Download your Quiet Signal data",
-          UTI: "public.json",
+          UTI: "public.plain-text",
         });
       } else {
         Alert.alert("Saved", `Your data was saved to:\n${file.uri}`);
